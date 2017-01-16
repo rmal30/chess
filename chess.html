@@ -5,10 +5,17 @@
 
 <div id="buttons">
 <button onclick="undo()">Undo</button>
-<button onclick="init()">New game</button>
-<button onclick="play()">Play move</button>
+<button onclick="startGame()">New game</button>
+<span id="pending" style="visibility:hidden;">Thinking...</span>
 </div>
-Level (1-4): <input id="level" type="text">
+
+Computer:
+<select id="compPlayer">
+	<option value=0>White</option>
+  	<option value=1>Black</option>
+  	<option value=-1>No computer</option>
+</select>
+Level: <input id="level" type="number" min="2" max="4" value="3">
 <div id="scores"></div>
 <div id="status"></div>
 

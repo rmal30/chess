@@ -10,9 +10,9 @@ var color2 = ['W', 'B'];
 var moveHistory;
 var noPiece = "--";
 var bestMoves;
+var allowPlay = false;
 var numCalls = {eval:0, p:0, k:0, n:0, moves:0, check:0};
 var currentSide, pendingMove;
-init();
 function init(){
 	boardPieces = {};
 	moveHistory=[];
@@ -49,6 +49,20 @@ function play(){
 		bestMove = bestMoves[Math.floor(bestMoves.length*Math.random())];
 		makeMove(bestMove.dest, bestMove.id, currentSide);
 	}
+    document.getElementById("pending").style.visibility = "hidden";
+}
+
+function startGame(){
+    init();
+    doPlay();
+}
+
+function doPlay(){
+    var compPlayer= document.getElementById("compPlayer").value;
+    if(compPlayer==currentSide){
+        document.getElementById("pending").style.visibility = "visible";
+        setTimeout(play, 100);
+    }
 }
 
 function evaluateScore(board, pieceIds, side){
@@ -230,7 +244,9 @@ function makeMove(cell, id, side){
 		currentSide=1;
 	}else{currentSide=0;}
 	game.push(JSON.parse(JSON.stringify(boardPieces)));
-	updateStatus();
+	doPlay();
+    updateStatus();
+    
 }
 function startMove(id, side){
 	if(side===currentSide && !pendingMove){
@@ -569,7 +585,7 @@ function findValidPieceMoves(piece, board, pieceIds, noCheckAllowed){
 			positions = findValidPawnMoves(piece, board, pieceIds, noCheckAllowed);
 			break;
 	default:
-}	
+    }	
 	return positions;
 }
 function adjustPosition(pos, x, y){
