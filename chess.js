@@ -40,7 +40,7 @@ function undo(){
 	}
 }
 function play(){
-	var level = parseInt(document.getElementById("level").value);
+    var level = parseInt(document.getElementById("level").value);
 	bestMoves = findBestMoves(boardPieces, findPosIds(boardPieces), currentSide, level, -100, 100);
 	if(bestMoves.length===0){
 		setupBoard(boardPieces);
@@ -49,7 +49,6 @@ function play(){
 		bestMove = bestMoves[Math.floor(bestMoves.length*Math.random())];
 		makeMove(bestMove.dest, bestMove.id, currentSide);
 	}
-    document.getElementById("pending").style.visibility = "hidden";
 }
 
 function startGame(){
@@ -59,9 +58,12 @@ function startGame(){
 
 function doPlay(){
     var compPlayer= document.getElementById("compPlayer").value;
-    if(compPlayer==currentSide){
+    
+    if(compPlayer==currentSide || compPlayer==2){
         document.getElementById("pending").style.visibility = "visible";
         setTimeout(play, 100);
+    }else{
+        document.getElementById("pending").style.visibility = "hidden";
     }
 }
 
@@ -244,9 +246,8 @@ function makeMove(cell, id, side){
 		currentSide=1;
 	}else{currentSide=0;}
 	game.push(JSON.parse(JSON.stringify(boardPieces)));
-	doPlay();
     updateStatus();
-    
+    doPlay();
 }
 function startMove(id, side){
 	if(side===currentSide && !pendingMove){
@@ -602,31 +603,35 @@ function evaluateBoard(pieces, pieceIds){
 	var mobilityScore = [0,0];
 	var materialScore = [0,0];
 	var possibleMoves;
-	var index;
+	var index, piece;
 	var bCheck, wCheck;
 	bCheck = detectCheck(pieces, pieceIds, 1);
 	wCheck = detectCheck(pieces, pieceIds, 0);
 	for(var id in pieces){
-		index = pieces[id].side;
-		if(index===0){
-			possibleMoves = findValidPieceMoves(pieces[id], pieces, pieceIds, false);
-		}else{
-			possibleMoves = findValidPieceMoves(pieces[id], pieces, pieceIds, false);
-		}
-		mobilityScore[index]+= possibleMoves[0].length+possibleMoves[1].length;
-		materialScore[index]+= pieces[id].value;
+        piece = pieces[id];
+		index = piece.side;
+        if(piece.type!=="P"){
+            if(index===0){
+                possibleMoves = findValidPieceMoves(pieces[id], pieces, pieceIds, wCheck);
+            }else{
+                possibleMoves = findValidPieceMoves(pieces[id], pieces, pieceIds, bCheck);
+            }
+            mobilityScore[index]+= possibleMoves[0].length+possibleMoves[1].length;
+        }
+		
+		materialScore[index]+= piece.value;
 	}
 	
 	if(mobilityScore[0]===0){
 		materialScore[0] = 0;
-		if(!detectCheck(pieces,pieceIds, 0)){
+		if(!wCheck){
 			mobilityScore[1]=0;
 			materialScore[1]=0;
 		}
 	}
 	if(mobilityScore[1]===0){
 		materialScore[1] = 0;
-		if(!detectCheck(pieces,pieceIds, 1)){
+		if(!bCheck){
 			mobilityScore[0]=0;
 			materialScore[0]=0;
 		}
