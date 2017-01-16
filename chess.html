@@ -1,25 +1,28 @@
 <HTML>
-<img src="board.png" height="416px" width="416px" style="position:relative"></img>
-<div id="pieces"></div>
-<div id="moves"></div>
-
-<div id="buttons">
-<button onclick="undo()">Undo</button>
-<button onclick="startGame()">New game</button>
-<span id="pending" style="visibility:hidden;">Thinking...</span>
+	<div>
+	<div width="450px" style="float:left">
+		<img src="board.png" height="416px" width="416px" style="position:relative;"></img>
+		<div id="pieces"></div> <div id="moves"></div>
+		<div id="buttons" style="float:bottom">
+			<button onclick="undo()">Undo</button>
+			<button onclick="startGame()">New game</button>
+			<span id="pending" style="visibility:hidden;">Thinking...</span>
+		</div>
+				
+		Computer:
+		<select id="compPlayer" onchange="doPlay()">
+			<option value=0>White</option>
+			<option value=1>Black</option>
+			<option value=2>Both</option>
+			<option value=-1>No computer</option>
+			
+		</select>
+		Level: <input id="level" type="number" min="2" max="4" value="3"/>
+		<div id="scores"></div>
+		<div id="status"></div>
+		</div>
+		<textarea id="history" style="width:150px" readonly></textarea>
 </div>
-
-Computer:
-<select id="compPlayer" onchange="doPlay()">
-	<option value=0>White</option>
-  	<option value=1>Black</option>
-	<option value=2>Both</option>
-  	<option value=-1>No computer</option>
-	
-</select>
-Level: <input id="level" type="number" min="2" max="4" value="3">
-<div id="scores"></div>
-<div id="status"></div>
 
 </HTML>
 <script type="text/javascript" src="chess.js"></script>

@@ -8,6 +8,7 @@ var abc = {a:0, b:1, c:2, d:3, e:4, f:5, g:6, h:7};
 var color = ['w', 'b'];
 var color2 = ['W', 'B'];
 var moveHistory;
+var gameNotation;
 var noPiece = "--";
 var bestMoves;
 var allowPlay = false;
@@ -16,6 +17,7 @@ var currentSide, pendingMove;
 function init(){
 	boardPieces = {};
 	moveHistory=[];
+	gameNotation = [];
 	currentSide=0;
 	pendingMove = false;
 	for(var i=0; i<8; i++){
@@ -34,6 +36,7 @@ function undo(){
 		currentSide = 1-currentSide;
 		game.pop();
 		moveHistory.pop();
+		gameNotation.pop();
 		boardPieces = JSON.parse(JSON.stringify(game[game.length-1]));
 		setupBoard(boardPieces);
 		updateStatus();
@@ -154,6 +157,7 @@ function findBestMoves(board,pieceIds, side, depth, a, b){
 function updateStatus(){
 	var pieceIds = findPosIds(boardPieces);
 	var scores = deepEvaluation(boardPieces, pieceIds);
+	document.getElementById("history").innerHTML = gameNotation.join(" ");
 	document.getElementById("scores").innerHTML="White: "+scores[0]+", Black: "+scores[1];
 	if(detectCheck(boardPieces,pieceIds,0) || detectCheck(boardPieces,pieceIds, 1)){
 		if(scores[0]===0){
@@ -228,6 +232,7 @@ function findCol(c){
 function makeMove(cell, id, side){
 	var capturedPiece = false;
 	var movingPiece = boardPieces[id];
+	var moveNotation = getNotation(id, boardPieces,movingPiece.position, cell);
 	for(var id2 in boardPieces){
 		if(boardPieces[id2]!==undefined && boardPieces[id2].position===cell){
 			removePiece(boardPieces[id2]);
@@ -246,9 +251,76 @@ function makeMove(cell, id, side){
 		currentSide=1;
 	}else{currentSide=0;}
 	game.push(JSON.parse(JSON.stringify(boardPieces)));
+	gameNotation.push(moveNotation);
     updateStatus();
     doPlay();
 }
+
+function getNotation(pieceId, board, initPos, finalPos){
+	var promotion = "";
+	var pieceIds = findPosIds(board);
+	var finalPosId = pieceIds[finalPos];
+	var capture = "";
+	var pieceType=board[pieceId].type;
+	var idLetters = pieceType;
+
+	if(finalPosId!==noPiece){
+		capture="x";
+	}else{
+		if(Math.abs(initPos[1] - finalPos[1])===1 && Math.abs(findCol(initPos[0]) - findCol(finalPos[0]))===1 && pieceType=="P"){
+			return initPos[0]+"x"+finalPos+"e.p.";
+		}
+	}
+
+	if(pieceType==="P"){
+		if(capture==="x"){idLetters=initPos[0];}else{idLetters="";}
+		if(finalPos[1]=="1" || finalPos[1]=="8"){
+			promotion="=Q";
+		}
+	}else{
+		idLetters=pieceType;
+	}
+
+	if(pieceType=="R" || pieceType=="Q" || pieceType=="B" || pieceType=="N"){
+		var moves;
+		var initPositions = [];
+		for(var pieceId2 in board){
+			if(board[pieceId2].type==pieceType && board[pieceId2].side==board[pieceId].side && pieceId!=pieceId2){
+				moves = findValidPieceMoves(board[pieceId2], board, pieceIds, true);
+				if(moves[0].indexOf(finalPos)!==-1 || moves[1].indexOf(finalPos)!==-1){
+					initPositions.push(board[pieceId2].position);
+				}
+			}
+		}
+		var sameFile = false;
+		var sameRank = false;
+		for(var i=0; i<initPositions.length; i++){
+			if(initPositions[i][0]==initPos[0]){
+				sameFile = true;
+			}
+			if(initPositions[i][1]==initPos[1]){
+				sameRank = true;
+			}
+		}
+		if(initPositions.length>0){
+			if(!sameFile){idLetters+=initPos[0];}
+			else if(!sameRank){idLetters+=initPos[1];}
+			else{
+				idLetters+=initPos;
+			}
+		}
+	}
+	if(pieceType==="K" && initPos[0]=="e"){
+		if(finalPos[0]=="g"){
+			return "O-O";
+		}else if(finalPos[0]=="c"){
+			return "O-O-O";
+		}
+	}
+
+	return idLetters+capture+finalPos+promotion;
+}
+
 function startMove(id, side){
 	if(side===currentSide && !pendingMove){
 		pendingMove = true;
