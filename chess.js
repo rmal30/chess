@@ -207,9 +207,7 @@ function findBestMoves(board,pieceIds, validMoves, side, depth,maxDepth, a, b){
 	var movingPiece;
 	var legalMoves;
 	var k;
-	var emptyBoard = {};
 	var validMoves2 = {};
-	var allMoves = {};
 	var validMovesStr = JSON.stringify(validMoves);
 	for(var pieceId in board){
 		if(board[pieceId].side==side){
