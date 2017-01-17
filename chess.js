@@ -891,8 +891,8 @@ function findControllingPieces(board, pieceIds, position){
 	}
 	testPiece = {type:"K", position:position};
 	var neighbours = findAllPieceMoves(testPiece);
-	for(var i=0; i<neighbours; i++){
-		pieceId = pieceIds[neigbours[i]];
+	for(var i=0; i<neighbours.length; i++){
+		pieceId = pieceIds[neighbours[i]];
 		if(pieceId!==noPiece){
 			threatType = board[pieceId].type;
 			if(threatType==='K'){
