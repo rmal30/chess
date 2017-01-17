@@ -1,13 +1,9 @@
 <HTML>
 	<div style="width:650px"> 
-	<div style="float:left; width:420px; height:600px;">
+	<div style="float:left; width:65%; height:600px;">
 		<img src="board.png" height="416px" width="416px" style="position:relative;"></img>
 		<div id="pieces"></div> <div id="moves"></div>
-		<div id="buttons" style="float:bottom">
-			<button onclick="undo()">Undo</button>
-			<button onclick="startGame()">New game</button>
-			<span id="pending" style="visibility:hidden;">Thinking...</span>
-		</div>
+		
 		Computer:
 		<select id="compPlayer" onchange="doPlay()">
 			<option value=0>White</option>
@@ -16,11 +12,17 @@
 			<option value=-1>No computer</option>
 			
 		</select>
+
 		Level: <input id="level" type="number" min="2" max="4" value="3"/>
+		<div id="buttons" style="float:bottom">
+			<button onclick="undo()">Undo</button>
+			<button onclick="startGame()">New game</button>
+			<span id="pending" style="visibility:hidden;">Thinking...</span>
+		</div>
 		<div id="scores"></div>
 		<div id="status"></div>
 		</div>
-		<div style="width:230px; height:400px; float:right;">
+		<div style="width:35%; height:400px; float:right;">
 			<div style="text-align:center">Move history:</div> 
 			<textarea id="history" style="float:center; width:100%; height:100%" readonly></textarea>
 		</div>
