@@ -908,7 +908,7 @@ function findControllingPieces(board, pieceIds, position){
 		pieceId = pieceIds[pawnMoves1[i]];
 		if(pieceId!==noPiece){
 			threatType = board[pieceId].type;
-			if(threatType==='P'){
+			if(threatType==='P' && board[pieceId].side==1){
 				controllingPieces.push(pieceId);
 			}
 		}
@@ -917,7 +917,7 @@ function findControllingPieces(board, pieceIds, position){
 		pieceId = pieceIds[pawnMoves2[i]];
 		if(pieceId!==noPiece){
 			threatType = board[pieceId].type;
-			if(threatType==='P'){
+			if(threatType==='P' && board[pieceId].side==0){
 				controllingPieces.push(pieceId);
 			}
 		}
