@@ -9,10 +9,11 @@ var color = ['w', 'b'];
 var color2 = ['W', 'B'];
 var moveHistory;
 var gameNotation;
+var boardTable = {};
 var noPiece = "--";
 var bestMoves;
 var allowPlay = false;
-var numCalls = {eval:0, p:0, k:0, n:0, moves:0, check:0};
+var numCalls = {eval:0, p:0, k:0, n:0, moves:0, check:0, umt:0, umtm:0};
 var currentSide, pendingMove;
 function init(){
 	boardPieces = {};
@@ -44,7 +45,7 @@ function undo(){
 }
 function play(){
     var level = parseInt(document.getElementById("level").value);
-	bestMoves = findBestMoves(boardPieces, findPosIds(boardPieces), currentSide, level, -100, 100);
+	bestMoves = findBestMoves(boardPieces, findPosIds(boardPieces), currentSide, level, level, -100, 100);
 	if(bestMoves.length===0){
 		setupBoard(boardPieces);
 		updateStatus();
@@ -64,14 +65,14 @@ function doPlay(){
     
     if(compPlayer==currentSide || compPlayer==2){
         document.getElementById("pending").style.visibility = "visible";
-        setTimeout(play, 100);
+        setTimeout(play, 200);
     }else{
         document.getElementById("pending").style.visibility = "hidden";
     }
 }
 
-function evaluateScore(board, pieceIds, side){
-	var scores = evaluateBoard(boardPieces, pieceIds);
+function evaluateScore(board, validMoves, pieceIds, side){
+	var scores = evaluateBoard(board,validMoves, pieceIds);
 	var score;
 	if(side===0){
 		score = scores[0] - scores[1];
@@ -81,7 +82,109 @@ function evaluateScore(board, pieceIds, side){
 	return score;
 }
 
-function findBestMoves(board,pieceIds, side, depth, a, b){
+function findAllPieceMoves(piece){
+	var position = piece.position;
+	var pieceType = piece.type;
+	var positions = [];
+	var vectors;
+	var direction=1;
+	if(piece.side===1){direction=-1;}
+	var numPaths;
+	switch(pieceType){
+		case 'R': vectors = [[-1, 0], [0, 1], [0, -1], [1, 0]]; numPaths = 4; break;
+		case 'B': vectors = [[-1, 1], [1, 1], [-1, -1], [1, -1]]; numPaths = 4; break;
+		case 'Q': vectors = [[1, 0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]]; numPaths = 8; break;
+	}
+	
+	switch(pieceType){
+		case 'R':
+		case 'B':
+		case 'Q':
+			var pos = piece.position;
+			var side = piece.side;
+			positions.push([]);
+			positions.push([]);
+			for(var i=0; i<numPaths; i++){
+				pos = piece.position;
+				while(pos!==undefined){
+					pos = adjustPosition(pos, vectors[i][0], vectors[i][1]);
+					if(pos!==undefined){
+						positions.push(pos);
+					}
+				}
+			}
+			break;
+		case 'N':
+			var options = [[2, 1],[1, 2],[-1, 2],[-2, 1],[-2, -1],[-1, -2],[1, -2],[2, -1]];
+			var possibleMove;
+			var pos = piece.position;
+			for(var i=0; i<8; i++){
+				possibleMove = adjustPosition(pos, options[i][0], options[i][1]);
+				if(possibleMove!==undefined){
+					positions.push(possibleMove);
+				}
+			}	
+			break;
+		case 'K':
+			var options = [[1, 0],[1, 1],[0, 1],[-1, 1],[-1, 0],[-1, -1],[0, -1],[1, -1]];
+			var possibleMove;
+			var pos = piece.position;
+			for(var i=0; i<8; i++){
+				possibleMove = adjustPosition(pos, options[i][0], options[i][1]);
+				if(possibleMove!==undefined){
+					positions.push(possibleMove);
+				}
+			}	
+			break;
+		case 'P':
+			var options = [[0, direction],[0, 2*direction],[-1, direction],[1, direction]];
+			var possibleMove;
+			var pos = piece.position;
+			for(var i=0; i<4; i++){
+				possibleMove = adjustPosition(pos, options[i][0], options[i][1]);
+				if(possibleMove!==undefined){
+					positions.push(possibleMove);
+				}
+			}	
+			break;
+	default:
+    }	
+	return positions;
+
+}
+
+String.prototype.hashCode = function(){
+    if (Array.prototype.reduce){
+        return this.split("").reduce(function(a,b){a=((a<<5)-a)+b.charCodeAt(0);return a&a},0);              
+    } 
+    var hash = 0;
+    if (this.length === 0) return hash;
+    for (var i = 0; i < this.length; i++) {
+        var character  = this.charCodeAt(i);
+		hash  = ((hash<<5)-hash)+character;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash;
+}
+
+function updateMoveTable(validMoves, allMoves, board, pieceIds, initPos, finalPos){
+	numCalls.umt++;
+	var unknownPieces1 = findControllingPieces(board, initPos);
+	var unknownPieces2 = findControllingPieces(board, finalPos);
+	for(var i=0; i<unknownPieces1.length; i++){
+		numCalls.umtm++;
+		validMoves[unknownPieces1[i]] = findValidPieceMoves(board[pieceIds[finalPos]], board, pieceIds, false);	
+	}
+	for(var i=0; i<unknownPieces2.length; i++){
+		numCalls.umtm++;
+		validMoves[unknownPieces2[i]] = findValidPieceMoves(board[pieceIds[finalPos]], board, pieceIds, false);	
+	}
+
+	numCalls.umtm++;
+	validMoves[pieceIds[finalPos]] = findValidPieceMoves(board[pieceIds[finalPos]], board, pieceIds, false);
+}
+
+function findBestMoves(board,pieceIds, side, depth,maxDepth, a, b){
 	var bestScore = -1000;
 	var bestMoves = [];
 	var allOptions;
@@ -92,11 +195,20 @@ function findBestMoves(board,pieceIds, side, depth, a, b){
 	var totalMoves;
 	var replies;
 	var movingPiece;
+	var legalMoves;
 	var k;
+	var emptyBoard = {};
+	var validMoves = {}; var validMoves2 = {};
+	var allMoves = {};
+	for(var pieceId2 in board){
+		allMoves[pieceId2] = findAllPieceMoves(board[pieceId2]);
+		validMoves[pieceId2] = findValidPieceMoves(board[pieceId2], board, pieceIds, depth==maxDepth && board[pieceId2].side==side);
+	}
+	var validMovesStr = JSON.stringify(validMoves);
 	for(var pieceId in board){
 		if(board[pieceId].side==side){
 			movingPiece = board[pieceId];
-			allOptions = findValidPieceMoves(movingPiece, board, pieceIds, true);
+			allOptions = validMoves[pieceId];
 			initPos = movingPiece.position;
 			numCaptures = allOptions[1].length;
 			numMoves = allOptions[0].length;
@@ -106,26 +218,28 @@ function findBestMoves(board,pieceIds, side, depth, a, b){
 			totalMoves = allOptions[0].length;
 			for(var j=0; j<totalMoves; j++){
 				validMove = allOptions[0][j];
+				validMoves2 = JSON.parse(validMovesStr);
 				if(j>=numMoves){
 					k = pieceIds[validMove];
 					if(k!==noPiece){
 						captured = board[k];
+						delete validMoves2[k];
 						delete board[k];
 					}
 				}
 				board[pieceId].position = validMove;
 				pieceIds[validMove] = pieceId;
 				pieceIds[initPos]=noPiece;
-				
+				updateMoveTable(validMoves2, allMoves, board, pieceIds, initPos, validMove);
 				if(depth>1){
-					replies = findBestMoves(board,pieceIds,1-side, depth-1, -b, -a);
+					replies = findBestMoves(board,pieceIds,1-side, depth-1, maxDepth, -b, -a);
 					if(replies.length>0){
 						newScore = - replies[0].score;
 					}else{
 						newScore = 1000;
 					}
 				}else{
-					newScore = evaluateScore(board, pieceIds, side);
+					newScore = evaluateScore(board,validMoves2, pieceIds, side);
 				}
 				if(newScore>bestScore){
 					bestScore = newScore;
@@ -141,6 +255,7 @@ function findBestMoves(board,pieceIds, side, depth, a, b){
 				if(j>=numMoves && k!==noPiece){
 					board[k] = captured;
 					pieceIds[validMove] = k;
+
 				}
 				if(bestScore>a){
 					a = bestScore;
@@ -457,13 +572,13 @@ function findValidPawnMoves(piece, board, pieceIds, noCheckAllowed){
 	pawnSide=color2[1-side];
 	var captured;
 	
-	if(pos[0]!=='a' && pos[1]!=='8'){
+	if(pos[0]!=='a' && pos[1]!=='8' && pos[1]!=='1'){
 		leftCapturePos = adjustPosition(pos, -1, direction);
 		if(pieceIds[leftCapturePos][0]===pawnSide && (!noCheckAllowed || validMove(leftCapturePos, piece, board, pieceIds, true))){
 			positions[1].push(leftCapturePos);	
 		}
 	}
-	if(pos[0]!=='h' && pos[1]!=='8'){
+	if(pos[0]!=='h' && pos[1]!=='8' && pos[1]!=='1'){
 		rightCapturePos = adjustPosition(pos, 1, direction);
 		if(rightCapturePos!==undefined && pieceIds[rightCapturePos][0]===pawnSide && (!noCheckAllowed || validMove(rightCapturePos, piece, board, pieceIds, true))){
 			positions[1].push(rightCapturePos);	
@@ -545,14 +660,15 @@ function validMove(cell, piece, board, pieceIds, checkCapture){
 	var initPos = piece.position;
 	var valid = true;
 	var captured;
-	var j;
+	var j = pieceIds[cell];
+	
 	if(checkCapture){
-		j = pieceIds[cell];
 		if(j!==noPiece){
 			captured = board[j];
-			delete board[j];
+			board[j] = undefined;
 		}
 	}
+	
 	piece.position = cell;
 	pieceIds[cell]=piece.id;
 	pieceIds[initPos]=noPiece;
@@ -562,6 +678,7 @@ function validMove(cell, piece, board, pieceIds, checkCapture){
 	pieceIds[cell]= noPiece;
 	piece.position = initPos;
 	pieceIds[initPos]=piece.id;
+	
 	if(checkCapture){
 		if(j!==noPiece){
 			board[j] = captured;
@@ -669,47 +786,49 @@ function adjustPosition(pos, x, y){
 	}
 	return file[colNum]+rowNum;
 }
-function evaluateBoard(pieces, pieceIds){
-	numCalls.eval++;
-	var scores = [0, 0];
-	var mobilityScore = [0,0];
-	var materialScore = [0,0];
-	var possibleMoves;
-	var index, piece;
-	var bCheck, wCheck;
-	bCheck = detectCheck(pieces, pieceIds, 1);
-	wCheck = detectCheck(pieces, pieceIds, 0);
-	for(var id in pieces){
-        piece = pieces[id];
-		index = piece.side;
-        if(piece.type!=="P"){
-            if(index===0){
-                possibleMoves = findValidPieceMoves(pieces[id], pieces, pieceIds, wCheck);
-            }else{
-                possibleMoves = findValidPieceMoves(pieces[id], pieces, pieceIds, bCheck);
-            }
-            mobilityScore[index]+= possibleMoves[0].length+possibleMoves[1].length;
-        }
-		
-		materialScore[index]+= piece.value;
-	}
+function evaluateBoard(pieces, validMoves, pieceIds){
 	
-	if(mobilityScore[0]===0){
-		materialScore[0] = 0;
-		if(!wCheck){
-			mobilityScore[1]=0;
-			materialScore[1]=0;
+	var hash = JSON.stringify(pieceIds);
+	if(boardTable[hash]===undefined){
+		var scores = [0, 0];
+		var mobilityScore = [0,0];
+		var materialScore = [0,0];
+		var possibleMoves;
+		var index, piece;
+		var bCheck, wCheck;
+		for(var id in pieces){
+			piece = pieces[id];
+			index = piece.side;
+			possibleMoves = validMoves[id];
+			mobilityScore[index]+= possibleMoves[0].length+possibleMoves[1].length;
+			materialScore[index]+= piece.value;
 		}
-	}
-	if(mobilityScore[1]===0){
-		materialScore[1] = 0;
-		if(!bCheck){
-			mobilityScore[0]=0;
-			materialScore[0]=0;
+		
+		if(mobilityScore[0]===0){
+			materialScore[0] = 0;
+			wCheck = detectCheck(pieces, pieceIds, 0);
+			if(!wCheck){
+				mobilityScore[1]=0;
+				materialScore[1]=0;
+			}
 		}
+		if(mobilityScore[1]===0){
+			materialScore[1] = 0;
+			bCheck = detectCheck(pieces, pieceIds, 1);
+			if(!bCheck){
+				mobilityScore[0]=0;
+				materialScore[0]=0;
+			}
+			
+		}
+		
+		scores[0] = mobilityScore[0]*0.05+materialScore[0];
+		scores[1] = mobilityScore[1]*0.05+materialScore[1];
+		numCalls.eval++;
+		boardTable[hash] = scores;
+	}else{
+		return boardTable[hash];
 	}
-	scores[0] = mobilityScore[0]*0.05+materialScore[0];
-	scores[1] = mobilityScore[1]*0.05+materialScore[1];
 	return scores;
 }
 function deepEvaluation(pieces, pieceIds){
@@ -742,6 +861,64 @@ function deepEvaluation(pieces, pieceIds){
 	scores[1] = mobilityScore[1]*0.05+materialScore[1];
 	return scores;
 }
+
+function findControllingPieces(board, position){
+	var pos = position;
+	var controllingPieces = [];
+	var pieceTypes = ["R", "B", "N"];
+	var threatType, pieceId, pieceType, testPiece;
+	for(var j=0; j<3; j++){
+		pieceType = pieceTypes[j];
+		testPiece = {type:pieceType, side:2, position:position};
+		possibleThreats = findValidPieceMoves(testPiece, pieces, pieceIds, false)[1];
+		numThreats = possibleThreats.length;
+		for(var i=0; i<numThreats; i++){
+			pieceId = pieceIds[possibleThreats[i]];
+			if(pieceId!==noPiece){
+				threatType = pieces[pieceId].type;
+				if(threatType===pieceType || (pieceType!=='N' && threatType==='Q')){
+					controllingPieces.push(pieceId);
+				}
+			}
+		}
+	}
+	testPiece = {type:"K", position:position};
+	var neighbours = findAllPieceMoves(testPiece);
+	for(var i=0; i<neighbours; i++){
+		pieceId = pieceIds[neigbours[i]];
+		if(pieceId!==noPiece){
+			threatType = pieces[pieceId].type;
+			if(threatType==='K'){
+				controllingPieces.push(pieceId);
+			}
+		}
+	}
+	testPiece = {type:"P", position:position, side:0};
+	var pawnMoves1 = findAllPieceMoves(testPiece);
+	testPiece = {type:"P", position:position, side:1};
+	var pawnMoves2 = findAllPieceMoves(testPiece);
+	for(var i=0; i<pawnMoves1.length; i++){
+		pieceId = pieceIds[pawnMoves1[i]];
+		if(pieceId!==noPiece){
+			threatType = pieces[pieceId].type;
+			if(threatType==='P'){
+				controllingPieces.push(pieceId);
+			}
+		}
+	}
+	for(var i=0; i<pawnMoves2.length; i++){
+		pieceId = pieceIds[pawnMoves2[i]];
+		if(pieceId!==noPiece){
+			threatType = pieces[pieceId].type;
+			if(threatType==='P'){
+				controllingPieces.push(pieceId);
+			}
+		}
+	}
+
+	return controllingPieces;
+}
+
 function detectCheck(pieces, pieceIds,side){
 	numCalls.check++;
 	var kingPos;
