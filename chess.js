@@ -7,13 +7,14 @@ var values = [5, 3, 3.5, 9, 39, 3.5, 3, 5];
 var abc = {a:0, b:1, c:2, d:3, e:4, f:5, g:6, h:7};
 var color = ['w', 'b'];
 var color2 = ['W', 'B'];
+var colorToSide = {'W':0, 'B':1};
 var moveHistory;
 var gameNotation;
 var boardTable = {};
 var noPiece = "--";
 var bestMoves;
 var allowPlay = false;
-var numCalls = {eval:0, p:0, k:0, n:0, moves:0, check:0, umt:0, umtm:0, fcp:0};
+var numCalls = {eval:0,evalB:0, p:0, k:0, n:0, moves:0, check:0, umt:0, umtm:0, fcp:0};
 var currentSide, pendingMove;
 function init(){
 	boardPieces = {};
@@ -47,7 +48,7 @@ function play(){
     var level = parseInt(document.getElementById("level").value);
 	var posIds = findPosIds(boardPieces);
 	bestMoves = findBestMoves(boardPieces, posIds, findValidMoves(boardPieces, posIds), currentSide, level, level, -100, 100);
-	if(bestMoves.length!=0){
+	if(bestMoves.length>0){
 		bestMove = bestMoves[Math.floor(bestMoves.length*Math.random())];
 		applyMove(bestMove);
 	}
@@ -108,9 +109,6 @@ function findAllPieceMoves(piece){
 		case 'B':
 		case 'Q':
 			var pos = piece.position;
-			var side = piece.side;
-			positions.push([]);
-			positions.push([]);
 			for(var i=0; i<numPaths; i++){
 				pos = piece.position;
 				while(pos!==undefined){
@@ -179,45 +177,55 @@ function findBestMoves(board,pieceIds, validMoves, side, depth,maxDepth, a, b){
 	var validMovesStr = JSON.stringify(validMoves);
 	var boardStr = JSON.stringify(board);
 	var pieceIdsStr = JSON.stringify(pieceIds);
-	validMoves2 = JSON.parse(validMovesStr);
-	pieceIds2 = JSON.parse(pieceIdsStr);
+	
+	if(JSON.stringify(findValidMoves(board, pieceIds))!=validMovesStr){
+		console.log("Fail!");
+		console.log(JSON.stringify(findValidMoves(board, pieceIds)));
+		console.log(validMovesStr, board);
+	}
 	for(var pieceId in board){
 		if(board[pieceId].side==side){
+			validMoves2 = JSON.parse(validMovesStr);
 			movingPiece = board[pieceId];
 			allOptions = validMoves[pieceId];
 			initPos = movingPiece.position;
-			pieceIds2[initPos]=noPiece;
+
+			pieceIds[initPos]=noPiece;
 			var unknownPieces1 = findControllingPieces(board, pieceIds, initPos);
 			for(var i=0; i<unknownPieces1.length; i++){
 				numCalls.umtm++;
-				validMoves2[unknownPieces1[i]] = findValidPieceMoves(board[unknownPieces1[i]], board, pieceIds2, false);	
+				validMoves2[unknownPieces1[i]] = findValidPieceMoves(board[unknownPieces1[i]], board, pieceIds, true);	
 			}
-			pieceIds2[initPos] = pieceId;
+			pieceIds[initPos] = pieceId;
+			
 			numCaptures = allOptions[1].length;
 			numMoves = allOptions[0].length;
 			for(var i=0; i<numCaptures; i++){
 				allOptions[0].push(allOptions[1][i]);
 			}
 			totalMoves = allOptions[0].length;
+			var validMoves2Str = JSON.stringify(validMoves2);
+			var validMoves3 = {};
 			for(var j=0; j<totalMoves; j++){
 				validMove = allOptions[0][j];
 				board2 = JSON.parse(boardStr);
 				pieceIds2 = JSON.parse(pieceIdsStr);
-				makeMove(board2,pieceIds2, {pieceId:pieceId, origin:initPos, dest:validMove});
+				validMoves3 = JSON.parse(validMoves2Str);
+				makeMove(board2,pieceIds2, validMoves3, {pieceId:pieceId, origin:initPos, dest:validMove});
 				var unknownPieces2 = findControllingPieces(board2, pieceIds2, validMove);
 				for(var i=0; i<unknownPieces2.length; i++){
-					validMoves2[unknownPieces2[i]] = findValidPieceMoves(board2[unknownPieces2[i]], board2, pieceIds2, false);	
+					validMoves3[unknownPieces2[i]] = findValidPieceMoves(board2[unknownPieces2[i]], board2, pieceIds2, true);	
 				}
-				validMoves2[pieceIds2[validMove]] = findValidPieceMoves(board2[pieceIds2[validMove]], board2, pieceIds2, false);
+				validMoves3[pieceIds2[validMove]] = findValidPieceMoves(board2[pieceIds2[validMove]], board2, pieceIds2, true);
 				if(depth>1){
-					replies = findBestMoves(board2,pieceIds2,validMoves2,1-side, depth-1, maxDepth, -b, -a);
+					replies = findBestMoves(board2,pieceIds2,validMoves3,1-side, depth-1, maxDepth, -b, -a);
 					if(replies.length>0){
 						newScore = - replies[0].score;
 					}else{
 						newScore = 1000;
 					}
 				}else{
-					newScore = evaluateScore(board2,validMoves2, pieceIds2, side);
+					newScore = evaluateScore(board2,validMoves3, pieceIds2, side);
 				}
 				if(newScore>bestScore){
 					bestScore = newScore;
@@ -226,9 +234,8 @@ function findBestMoves(board,pieceIds, validMoves, side, depth,maxDepth, a, b){
 				if(newScore>=bestScore){
 					bestMoves.push({origin:initPos, dest:validMove, pieceId:pieceId, score:newScore});
 				}
-				validMoves2 = JSON.parse(validMovesStr);
 				if(bestScore>a){a = bestScore;}
-				if(a>=b){ break;}
+				if(a>=b){ return bestMoves;}
 			}				
 		}
 	}
@@ -280,17 +287,19 @@ function findCol(c){
 }
 
 
-function makeMove(board, pieceIds, move){
+function makeMove(board, pieceIds, validMoves,move){
 	var captureMade = false;
 	pieceIds[move.origin] = noPiece;
 	if(pieceIds[move.dest]!==noPiece){
 		captureMade = true;
 		delete board[pieceIds[move.dest]];
+		delete validMoves[pieceIds[move.dest]];
 	}
 	pieceIds[move.dest] = move.pieceId;
 	
 	if(Math.abs(move.origin[1] - move.dest[1])===1 && Math.abs(findCol(move.origin[0]) - findCol(move.dest[0]))===1 && !captureMade &&move.pieceId[1]==='P'){
 		delete board[pieceIds[move.dest[0]+move.origin[1]]];
+		delete validMoves[pieceIds[move.dest[0]+move.origin[1]]];
 		pieceIds[move.dest[0]+move.origin[1]] = noPiece;
 	}
 	if(move.origin==="e"+move.origin[1] && move.dest==="c"+move.origin[1] && move.pieceId[1]==='K'){
@@ -382,7 +391,7 @@ function getNotation(board, move){
 
 function applyMove(move){
 	gameNotation.push(getNotation(boardPieces, move));
-	makeMove(boardPieces,findPosIds(boardPieces), move);
+	makeMove(boardPieces,findPosIds(boardPieces), findValidMoves(boardPieces,findPosIds(boardPieces)), move);
 	moveHistory.push(move);
 	currentSide = 1 - currentSide;
 	game.push(JSON.parse(JSON.stringify(boardPieces)));
@@ -643,7 +652,6 @@ function findValidKnightMoves(piece, board, pieceIds, noCheckAllowed){
 	var positions = [[],[]];
 	var options = [[2, 1],[1, 2],[-1, 2],[-2, 1],[-2, -1],[-1, -2],[1, -2],[2, -1]];
 	var p, possibleMove;
-	var oppColor = color2[1-piece.side];
 	var pos = piece.position;
 	for(var i=0; i<8; i++){
 		possibleMove = adjustPosition(pos, options[i][0], options[i][1]);
@@ -651,14 +659,14 @@ function findValidKnightMoves(piece, board, pieceIds, noCheckAllowed){
 			p = pieceIds[possibleMove];
 			if(noCheckAllowed){
 				if(p===noPiece && validMove(possibleMove, piece, board, pieceIds, false)){
-				positions[0].push(possibleMove);		
-				}else if(p[0]===oppColor && validMove(possibleMove, piece, board, pieceIds, true)){
+					positions[0].push(possibleMove);		
+				}else if(colorToSide[p[0]]!=piece.side && validMove(possibleMove, piece, board, pieceIds, true)){
 					positions[1].push(possibleMove);	
 				}
 			}else{
 				if(p===noPiece){
 					positions[0].push(possibleMove);		
-				}else if(p[0]===oppColor){
+				}else if(colorToSide[p[0]]!=piece.side){
 					positions[1].push(possibleMove);	
 				}
 			}
@@ -695,8 +703,9 @@ function findValidPieceMoves(piece, board, pieceIds, noCheckAllowed){
 				p = noPiece;
 				while(p===noPiece && pos!==undefined){
 					pos = adjustPosition(pos, vectors[i][0], vectors[i][1]);
-					p = pieceIds[pos];
+					
 					if(pos!==undefined){
+						p = pieceIds[pos];
 						if(noCheckAllowed){		
 							if(p===noPiece){
 								if(validMove(pos, piece, board, pieceIds, false)){
@@ -739,6 +748,7 @@ function adjustPosition(pos, x, y){
 }
 function evaluateBoard(pieces, validMoves, pieceIds){
 	var hash = JSON.stringify(pieceIds);
+	numCalls.evalB++;
 	if(boardTable[hash]===undefined){
 		var scores = [0, 0];
 		var mobilityScore = [0,0];
@@ -821,7 +831,6 @@ function findControllingPieces(board, pieceIds, position){
 	for(var j=0; j<3; j++){
 		pieceType = pieceTypes[j];
 		testPiece = {type:pieceType, side:2, position:position};
-		//console.log(board, pieceIds);
 		possibleThreats = findValidPieceMoves(testPiece, board, pieceIds, false)[1];
 		numThreats = possibleThreats.length;
 		for(var i=0; i<numThreats; i++){
