@@ -13,7 +13,6 @@ var gameNotation;
 var boardTable = {};
 var noPiece = "--";
 var bestMoves;
-var allowPlay = false;
 var numCalls = {eval:0,evalB:0, p:0, k:0, n:0, moves:0, check:0, umt:0, umtm:0, fcp:0};
 var currentSide, pendingMove;
 function init(){
@@ -49,14 +48,14 @@ function play(){
 	var posIds = findPosIds(boardPieces);
 	bestMoves = findBestMoves(boardPieces, posIds, findValidMoves(boardPieces, posIds), currentSide, level, level, -100, 100);
 	if(bestMoves.length>0){
-		bestMove = bestMoves[Math.floor(bestMoves.length*Math.random())];
+		var bestMove = bestMoves[Math.floor(bestMoves.length*Math.random())];
 		applyMove(bestMove);
 	}
 	updateStatus();
 }
 
 function findValidMoves(board, pieceIds){
-	validMoves = {};
+	var validMoves = {};
 	for(var id in board){
 		validMoves[id] = findValidPieceMoves(board[id], board, pieceIds,true);
 	}
@@ -91,12 +90,13 @@ function evaluateScore(board, validMoves, pieceIds, side){
 }
 
 function findAllPieceMoves(piece){
-	var position = piece.position;
+	var pos = piece.position;
 	var pieceType = piece.type;
 	var positions = [];
 	var vectors;
 	var direction=1;
-	if(piece.side===1){direction=-1;}
+	var possibleMove;
+  if(piece.side===1){direction=-1;}
 	var numPaths;
 	switch(pieceType){
 		case 'R': vectors = [[-1, 0], [0, 1], [0, -1], [1, 0]]; numPaths = 4; break;
@@ -108,7 +108,6 @@ function findAllPieceMoves(piece){
 		case 'R':
 		case 'B':
 		case 'Q':
-			var pos = piece.position;
 			for(var i=0; i<numPaths; i++){
 				pos = piece.position;
 				while(pos!==undefined){
@@ -121,8 +120,6 @@ function findAllPieceMoves(piece){
 			break;
 		case 'N':
 			var options = [[2, 1],[1, 2],[-1, 2],[-2, 1],[-2, -1],[-1, -2],[1, -2],[2, -1]];
-			var possibleMove;
-			var pos = piece.position;
 			for(var i=0; i<8; i++){
 				possibleMove = adjustPosition(pos, options[i][0], options[i][1]);
 				if(possibleMove!==undefined){
@@ -132,8 +129,6 @@ function findAllPieceMoves(piece){
 			break;
 		case 'K':
 			var options = [[1, 0],[1, 1],[0, 1],[-1, 1],[-1, 0],[-1, -1],[0, -1],[1, -1]];
-			var possibleMove;
-			var pos = piece.position;
 			for(var i=0; i<8; i++){
 				possibleMove = adjustPosition(pos, options[i][0], options[i][1]);
 				if(possibleMove!==undefined){
@@ -143,8 +138,6 @@ function findAllPieceMoves(piece){
 			break;
 		case 'P':
 			var options = [[0, direction],[0, 2*direction],[-1, direction],[1, direction]];
-			var possibleMove;
-			var pos = piece.position;
 			for(var i=0; i<4; i++){
 				possibleMove = adjustPosition(pos, options[i][0], options[i][1]);
 				if(possibleMove!==undefined){
@@ -160,8 +153,9 @@ function findAllPieceMoves(piece){
 
 
 function checkRelations(posArray, pieceType){
+  var valid;
 	if(pieceType=="R"){
-		var valid = true;
+		valid = true;
 		for(var i=1; i<posArray.length; i++){
 			if(posArray[i][0]!=posArray[0][0]){valid=false; break;}
 		}
@@ -173,12 +167,12 @@ function checkRelations(posArray, pieceType){
 		}
 		return valid;
 	}else if(pieceType=="B"){
-		var valid = true;
+		valid = true;
 		for(var i=1; i<posArray.length; i++){
 			if(findCol(posArray[i][0]) + parseInt(posArray[i][1])!=findCol(posArray[0][0]) + parseInt(posArray[0][1])){valid=false; break;}
 		}
 		if(!valid){
-			valid = true
+			valid = true;
 			for(var i=1; i<posArray.length; i++){
 				if(findCol(posArray[i][0]) - parseInt(posArray[i][1])!=findCol(posArray[0][0]) - parseInt(posArray[0][1])){valid=false; break;}
 			}
@@ -204,23 +198,19 @@ function findBestMoves(board,pieceIds, validMoves, side, depth,maxDepth, a, b){
 	var bestScore = -1000;
 	var bestMoves = [];
 	var allOptions;
-	var captured;
 	var validMove;
-	var numMoves, numCaptures;
+	var numMoves;
 	var initPos, newScore;
 	var totalMoves;
 	var replies;
 	var movingPiece;
-	var legalMoves;
 	var unknownPiece;
-	var k;
 	var oppKingId;
 	var validMoves2 = {};
 	var board2 = {};
 	var pieceIds2 = [];
 	var validMovesStr = JSON.stringify(validMoves);
 	var boardStr = JSON.stringify(board);
-	//var pieceIdsStr = JSON.stringify(pieceIds);
 	if(side===0){oppKingId = "BK";}else{oppKingId = "WK";}
 	for(var pieceId in board){
 		if(board[pieceId].side==side){
@@ -234,9 +224,8 @@ function findBestMoves(board,pieceIds, validMoves, side, depth,maxDepth, a, b){
 				validMoves2[unknownPieces1[i]] = findValidPieceMoves(board[unknownPieces1[i]], board, pieceIds, false);	
 			}
 			pieceIds[posToNum(initPos)] = pieceId;
-			numCaptures = allOptions[1].length;
 			numMoves = allOptions[0].length;
-			for(var i=0; i<numCaptures; i++){
+			for(var i=0; i<allOptions[1].length; i++){
 				allOptions[0].push(allOptions[1][i]);
 			}
 			totalMoves = allOptions[0].length;
@@ -254,21 +243,6 @@ function findBestMoves(board,pieceIds, validMoves, side, depth,maxDepth, a, b){
 					validMoves3[unknownPiece] = findValidPieceMoves(board2[unknownPiece], board2, pieceIds2, false);	
 				}
 				validMoves3[pieceId] = findValidPieceMoves(board2[pieceId], board2, pieceIds2, false);
-				
-				/*
-				if(board2[oppKingId]!=undefined){
-					if(checkRelations([validMove, board2[oppKingId].position], movingPiece.type)){
-						var potentialPins = validMoves3[pieceIds2[validMove]][1];
-						for(var k=0; k<potentialPins.length; k++){
-							if(checkRelations([potentialPins[k] ,validMove, board2[oppKingId].position], movingPiece.type)){
-								validMoves3[pieceIds2[potentialPins[k]]] = findValidPieceMoves(board2[pieceIds2[potentialPins[k]]], board2, pieceIds2, false);
-								break;
-							}
-						}
-					}
-					validMoves3[oppKingId] = findValidPieceMoves(board2[oppKingId], board2, pieceIds2, false);
-				}
-				*/
 				if(depth>1){
 					replies = findBestMoves(board2,pieceIds2,validMoves3,1-side, depth-1, maxDepth, -b, -a);
 					if(replies.length>0){
@@ -284,7 +258,6 @@ function findBestMoves(board,pieceIds, validMoves, side, depth,maxDepth, a, b){
 					bestMoves = [];
 				}
 				if(newScore>=bestScore){
-					//move.score = newScore;
 					bestMoves.push({origin:initPos, dest:validMove, pieceId:pieceId, score:newScore});
 				}
 				if(bestScore>a){a = bestScore;}
@@ -292,7 +265,6 @@ function findBestMoves(board,pieceIds, validMoves, side, depth,maxDepth, a, b){
 			}				
 		}
 	}
-	
 	return bestMoves;	
 }
 function updateStatus(){
@@ -800,10 +772,10 @@ function adjustPosition(pos, x, y){
 	return file[colNum]+rowNum;
 }
 function evaluateBoard(pieces, validMoves, pieceIds){
-	var hash = JSON.stringify(pieceIds);
+	var hash = pieceIds.toString();
+  var scores;
 	numCalls.evalB++;
 	if(boardTable[hash]===undefined){
-		var scores = [0, 0];
 		var mobilityScore = [0,0];
 		var materialScore = [0,0];
 		var possibleMoves;
@@ -839,10 +811,10 @@ function evaluateBoard(pieces, validMoves, pieceIds){
 		scores[1] = mobilityScore[1]*0.05+materialScore[1];
 		numCalls.eval++;
 		boardTable[hash] = scores;
+    return scores;
 	}else{
 		return boardTable[hash];
 	}
-	return scores;
 }
 function deepEvaluation(pieces, pieceIds){
 	var scores = [0, 0];
@@ -876,11 +848,10 @@ function deepEvaluation(pieces, pieceIds){
 }
 
 function findControllingPieces(board, pieceIds, position){
-	var pos = position;
 	var controllingPieces = [];
 	var pieceTypes = ["R", "B", "N"];
 	numCalls.fcp++;
-	var threatType, pieceId, pieceType, testPiece;
+	var threatType, pieceId, pieceType, testPiece, possibleThreats, numThreats;
 	for(var j=0; j<3; j++){
 		pieceType = pieceTypes[j];
 		testPiece = {type:pieceType, side:2, position:position};
@@ -924,7 +895,7 @@ function findControllingPieces(board, pieceIds, position){
 		pieceId = pieceIds[posToNum(pawnMoves2[i])];
 		if(pieceId!==noPiece){
 			threatType = board[pieceId].type;
-			if(threatType==='P' && board[pieceId].side==0){
+			if(threatType==='P' && board[pieceId].side===0){
 				controllingPieces.push(pieceId);
 			}
 		}
@@ -939,12 +910,12 @@ function detectCheck(board, pieceIds,side){
 	var direction;
 	if(side===0){direction = 1;}else{direction = -1;}
 	if(side===0){
-		if(board.WK==undefined){
+		if(board.WK===undefined){
 			return true;
 		}
 		kingPos = board.WK.position;
 	}else{
-		if(board.BK==undefined){
+		if(board.BK===undefined){
 			return true;
 		}
 		kingPos = board.BK.position;
