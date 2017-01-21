@@ -16,7 +16,7 @@ var gameNotation;
 var boardTable = {};
 var noPiece = 0;
 var bestMoves;
-var numCalls = {eval:0,evalB:0, p:0, k:0, n:0, moves:0, check:0, umt:0, umtm:0, fcp:0, upInit:0, upFinal:0, fcpm:0};
+var numCalls = {eval:0,evalM:0, p:0, k:0, n:0, moves:0, check:0, umt:0, umtm:0, fcp:0, upInit:0, upFinal:0, fcpm:0};
 var currentSide, pendingMove;
 function init(){
 	moveHistory=[];
@@ -25,7 +25,7 @@ function init(){
 	pendingMove = false;
 	pieceIds = [];
 	for(var i=0; i<8; i++){
-		pieceIds[i] = pieceToNum(order[i], 0);
+		pieceIds[i] = pieceToNum(order[i], 1);
 		pieceIds[i+8] 	= 1;
 
 		pieceIds[i+16] 	= 0;
@@ -34,7 +34,7 @@ function init(){
 		pieceIds[i+40] 	= 0;
 
 		pieceIds[i+48] 	= -1;
-		pieceIds[i+56] = pieceToNum(order[i], 1);
+		pieceIds[i+56] = pieceToNum(order[i], -1);
 	}
 	
 
@@ -44,9 +44,7 @@ function init(){
 }
 
 function pieceToNum(type, side){
-	var direction = 1;
 	var typeNum;
-	if(side === 1){direction = -1;}
 	switch(type){
 		case "P":typeNum = 1; break;
 		case "N": typeNum = 2; break;
@@ -55,16 +53,16 @@ function pieceToNum(type, side){
 		case "Q": typeNum = 5; break;
 		case "K": typeNum = 6; break;
 	}
-	return typeNum*direction;
+	return typeNum*side;
 }
 function undo(){
 	document.getElementById("moves").innerHTML="";
 	if(game.length>1){
-		currentSide = 1-currentSide;
+		currentSide = -currentSide;
 		game.pop();
 		moveHistory.pop();
 		gameNotation.pop();
-		pieceIds = game[game.length-1].slice();
+		pieceIds = game[game.length-1];
 		setupBoard(pieceIds);
 		updateStatus();
 	}
@@ -72,7 +70,6 @@ function undo(){
 function play(){
     var level = parseInt(document.getElementById("level").value);
 	bestMoves = findBestMoves(pieceIds, currentSide, level, level, -100, 100);
-	console.log(pieceIds);
 	if(bestMoves.length>0){
 		var bestMove = bestMoves[Math.floor(bestMoves.length*Math.random())];
 		applyMove(bestMove);
@@ -114,14 +111,10 @@ function groupPieceIdsByType(pieceIds){
 	return types;
 }
 
-function evaluateScore(pieceIds,validMoves, side){
-	var scores = evaluateBoard(pieceIds,validMoves);
+function evaluateScore(pieceIds,side){
+	var scores = evaluateBoard(pieceIds);
 	var score;
-	if(side===0){
-		score = scores[0] - scores[1];
-	}else{
-		score = scores[1] - scores[0];
-	}		
+	score = (scores[0] - scores[1])*side;	
 	return score;
 }
 
@@ -226,7 +219,11 @@ function parseObject(objStr){
 }
 
 function posToNum(pos){
-	return findCol(pos[0])+(pos[1]-1)*8;
+	if(pos!=undefined){
+		return findCol(pos[0])+(pos[1]-1)*8;
+	}else{
+		return undefined;
+	}
 }
 
 function findBestMoves(pieceIds, side, depth,maxDepth, a, b){
@@ -282,7 +279,7 @@ function findBestMoves(pieceIds, side, depth,maxDepth, a, b){
 						newScore = 1000;
 					}
 				}else{
-					newScore = evaluateScore(pieceIds2,findValidMoves(pieceIds2, depth==maxDepth), side);
+					newScore = evaluateScore(pieceIds2, side);
 				}
 				if(newScore>bestScore){
 					bestScore = newScore;
@@ -385,8 +382,10 @@ function getNotation(pieceIds, move){
 	var promotion = "";
 	var finalPosId = pieceIds[posToNum(move.dest)];
 	var capture = "";
+	var check="";
 	var typeId = Math.abs(move.pieceId);
 	var side = Math.sign(move.pieceId);
+
 	var pieceType = pieceTypes[typeId];
 	var idLetters = pieceType;
 
@@ -409,6 +408,7 @@ function getNotation(pieceIds, move){
 
 	if(pieceType=="R" || pieceType=="Q" || pieceType=="B" || pieceType=="N"){
 		var moves;
+		
 		var initPositions = [];
 		pieceIds[posToNum(move.dest)] = - move.pieceId;
 		var capturePositions = findValidPieceMoves(pieceIds,move.dest,true)[1];
@@ -443,8 +443,16 @@ function getNotation(pieceIds, move){
 			return "O-O-O";
 		}
 	}
-
-	return idLetters+capture+move.dest+promotion;
+	var pieceIds2 = pieceIds.slice();
+	makeMove(pieceIds2, move);
+	if(detectCheck(pieceIds2, -side)){
+		if(deepEvaluation(pieceIds2)[0.5+0.5*side]==0){
+			check="#";
+		}else{
+			check="+";
+		}
+	}
+	return idLetters+capture+move.dest+promotion+check;
 }
 
 
@@ -453,7 +461,7 @@ function applyMove(move){
 	makeMove(pieceIds, move);
 	moveHistory.push(move);
 	currentSide = - currentSide;
-	game.push(pieceIds);
+	game.push(pieceIds.slice());
 	setupBoard(pieceIds);
 	updateStatus();
 	doPlay();
@@ -560,7 +568,7 @@ function findValidKingMoves(pieceIds, position, noCheckAllowed){
 					pieceIds[position-1] = noPiece;
 				}
 			}
-			if(pieceIds[posToNum('f'+row)]===noPiece && pieceIds[posToNum('g'+row)]===noPiece && rightRook!==undefined && !rightRook.moved){
+			if(pieceIds[posToNum('f'+row)]===noPiece && pieceIds[posToNum('g'+row)]===noPiece && pieceIds[rightRookPos]/side===typeIds.R){
 				if(validMove(pieceIds, {origin:position, dest:kingRightPos, pieceId:pieceId}, false)){
 					pieceIds[position] = noPiece;
 					pieceIds[position+1] = pieceId;
@@ -608,7 +616,7 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
 				var enr = pieceIds[posToNum(enPassantRight)];
 				
 				if(enPassantLeft!==undefined && enl/side==-1 && moveDest===enPassantLeft){
-					leftCapturePos = adjustPosition(pos, -1, direction);
+					leftCapturePos = adjustPosition(pos, -1, side);
 					if(!noCheckAllowed){
 						positions[1].push(leftCapturePos);
 					}else{
@@ -626,7 +634,7 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
 				}
 				
 				if(enPassantRight!==undefined && enr/side==-1 && moveDest===enPassantRight){
-					rightCapturePos = adjustPosition(pos, 1, direction);
+					rightCapturePos = adjustPosition(pos, 1, side);
 					if(!noCheckAllowed){
 						positions[1].push(rightCapturePos);
 					}else{
@@ -762,16 +770,16 @@ function pieceValue(typeId){
 	var pieceValues = [0, 1, 3, 3.25, 5, 9, 39]; 
 	return pieceValues[typeId];
 }
-function evaluateBoard(pieceIds, validMoves){
+function evaluateBoard(pieceIds){
 	var hash = pieceIds.toString();
-  	var scores = [0,0];
-	numCalls.evalB++;
+
+	numCalls.eval++;
 	if(boardTable[hash]===undefined){
+		var scores = [0,0];
 		var mobilityScore = [0,0];
 		var materialScore = [0,0];
+		var validMoves = findValidMoves(pieceIds, false);
 		var possibleMoves;
-		var index, piece;
-		var bCheck, wCheck;
 		for(var i=0; i<pieceIds.length; i++){
 			if(pieceIds[i]>0){
 				possibleMoves = validMoves[i];
@@ -785,7 +793,7 @@ function evaluateBoard(pieceIds, validMoves){
 		}
 		scores[0] = mobilityScore[0]*0.05+materialScore[0];
 		scores[1] = mobilityScore[1]*0.05+materialScore[1];
-		numCalls.eval++;
+		numCalls.evalM++;
 		boardTable[hash] = scores;
     	return scores;
 	}else{
