@@ -5,11 +5,8 @@ var file = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 var order = ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'];
 //var ids = ["RQ", "NQ", "BQ", "Q", "K", "BK", "NK", "RK"];
 //var values = [5, 3, 3.5, 9, 39, 3.5, 3, 5];
-var abc = {a:0, b:1, c:2, d:3, e:4, f:5, g:6, h:7};
-var typeIds = {P:1, N:2, B:3, R:4, Q:5, K:6};
 var color = ['w', 'b'];
 var color2 = ['W', 'B'];
-var colorToSide = {W:0, B:1};
 var moveHistory;
 var pieceTypes = ['-', 'P', 'N', 'B', 'R', 'Q', 'K'];
 var gameNotation;
@@ -298,7 +295,11 @@ function findBestMoves(pieceIds, side, depth,maxDepth, a, b){
 }
 function updateStatus(){
 	var scores = deepEvaluation(pieceIds);
-	document.getElementById("history").innerHTML = gameNotation.join(" ");
+	var notationStr = "";
+	for(var i=0; i<gameNotation.length; i++){
+		notationStr+=(i+1)+". "+gameNotation[i][0]+" "+gameNotation[i][1]+" ";
+	}	
+	document.getElementById("history").innerHTML = notationStr;
 	document.getElementById("scores").innerHTML="White: "+scores[0]+", Black: "+scores[1];
 	if(detectCheck(pieceIds,1) || detectCheck(pieceIds, -1)){
 		if(scores[0]===0){
@@ -336,7 +337,16 @@ function getCell(x, y){
 	return file[col]+row;
 }
 function findCol(c){
-	return abc[c];
+	switch(c){
+		case "a": return 0;
+		case "b": return 1;
+		case "c": return 2;
+		case "d": return 3;
+		case "e": return 4;
+		case "f": return 5;
+		case "g": return 6;
+		case "h": return 7;
+	}
 }
 
 
@@ -364,7 +374,7 @@ function makeMove(pieceIds, move){
 		pieceIds[posToNum("f"+move.origin[1])] = pieceToNum("R", side);
 	}
 	if((side===-1 && move.dest[1]==="1") || (side===1 && move.dest[1]==="8")){
-		if(type===typeIds.P){
+		if(type===pieceToNum("P",1)){
 			pieceIds[posToNum(move.dest)] = pieceToNum("Q", side);
 		}
 	}
@@ -393,7 +403,7 @@ function getNotation(pieceIds, move){
 	if(finalPosId!==noPiece){
 		capture="x";
 	}else{
-		if(Math.abs(move.origin[1] - move.dest[1])===1 && Math.abs(findCol(move.origin[0]) - findCol(move.dest[0]))===1 && typeId===typeIds.P){
+		if(Math.abs(move.origin[1] - move.dest[1])===1 && Math.abs(findCol(move.origin[0]) - findCol(move.dest[0]))===1 && typeId===pieceToNum("P",1)){
 			return move.origin[0]+"x"+move.dest+"e.p.";
 		}
 	}
@@ -458,7 +468,11 @@ function getNotation(pieceIds, move){
 
 
 function applyMove(move){
-	gameNotation.push(getNotation(pieceIds, move));
+	if(currentSide==1){
+		gameNotation.push([getNotation(pieceIds, move),""]);
+	}else{
+		gameNotation[gameNotation.length-1][1] = getNotation(pieceIds, move);
+	}
 	makeMove(pieceIds, move);
 	moveHistory.push(move);
 	currentSide = - currentSide;
@@ -764,7 +778,7 @@ function adjustPosition(pos, x, y){
 	return file[colNum]+rowNum;
 }
 function pieceValue(typeId){
-	var pieceValues = [0, 1, 3, 3.25, 5, 9, 39]; 
+	var pieceValues = [0, 1, 3, 3.25, 5, 9, 39.5]; 
 	return pieceValues[typeId];
 }
 function evaluateBoard(pieceIds){
@@ -841,16 +855,16 @@ function findControllingPieces(pieceIds, boardTypes, position){
 	for(var j=0; j<3; j++){
 		pieceType = rayPieceTypes[j];
 		var valid = false;
-		var piecesOfType = boardTypes[typeIds[pieceType]];
+		var piecesOfType = boardTypes[pieceToNum(pieceType,1)];
 		for(var i=0; i<piecesOfType.length; i++){
 			if(checkRelations([piecesOfType[i], position], pieceType)){
 				valid = true;
 			}
 		}
 		if(valid){
-			pieceIds[posToNum(position)] = typeIds[pieceType];
+			pieceIds[posToNum(position)] = pieceToNum(pieceType,1);
 			possibleThreats = findValidPieceMoves(pieceIds, position,false)[1];
-			pieceIds[posToNum(position)] = -typeIds[pieceType];
+			pieceIds[posToNum(position)] = pieceToNum(pieceType,-1);
 			possibleThreats2 = findValidPieceMoves(pieceIds, position,false)[1];
 			pieceIds[posToNum(position)] = pieceId;
 			numCalls.fcpm++;
@@ -876,7 +890,7 @@ function findControllingPieces(pieceIds, boardTypes, position){
 
 		}
 	}
-	var neighbours = findAllPieceMoves(position, typeIds.K);
+	var neighbours = findAllPieceMoves(position, pieceToNum("K",1));
 	for(var i=0; i<neighbours.length; i++){
 		pieceId = pieceIds[posToNum(neighbours[i])];
 		if(pieceId!==noPiece){
@@ -887,19 +901,18 @@ function findControllingPieces(pieceIds, boardTypes, position){
 		}
 	}
 
-	var neighbours = findAllPieceMoves(position, typeIds.N);
+	var neighbours = findAllPieceMoves(position,pieceToNum("N",1));
 	for(var i=0; i<neighbours.length; i++){
 		pieceId = pieceIds[posToNum(neighbours[i])];
 		if(pieceId!==noPiece){
-			threatType = pieceTypes[Math.abs(pieceId)];
-			if(threatType==='N'){
+			if(pieceTypes[Math.abs(pieceId)]==='N'){
 				controllingPieces.push(pieceId);
 			}
 		}
 	}
 
-	var pawnMoves1 = findAllPieceMoves(position, typeIds.P);
-	var pawnMoves2 = findAllPieceMoves(position, -typeIds.P);
+	var pawnMoves1 = findAllPieceMoves(position, pieceToNum("P",1));
+	var pawnMoves2 = findAllPieceMoves(position, pieceToNum("P",-1));
 	for(var i=0; i<pawnMoves1.length; i++){
 		pieceId = pieceIds[posToNum(pawnMoves1[i])];
 		if(pieceId!==noPiece){
@@ -938,7 +951,7 @@ function detectCheck(pieceIds,side){
 	var pos = getPosFromId(posId);
 	var pLeft = adjustPosition(pos, -1, side);
 	var pRight = adjustPosition(pos, 1, side);
-	if((pRight!==undefined && pieceIds[posToNum(pRight)] == -typeIds.P*side) || (pLeft!==undefined && pieceIds[posToNum(pLeft)] == -typeIds.P*side)){
+	if((pRight!==undefined && pieceIds[posToNum(pRight)] == pieceToNum("P", -side)) || (pLeft!==undefined && pieceIds[posToNum(pLeft)] == pieceToNum("P", -side))){
 		return true;
 	} 
 	var moves = findAllPieceMoves(pos,pieceToNum("K",side));
