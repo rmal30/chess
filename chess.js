@@ -57,8 +57,13 @@ function undo(){
 	if(game.length>1){
 		currentSide = -currentSide;
 		game.pop();
+		if(currentSide==1){
+			gameNotation.pop();
+		}else{
+			gameNotation[gameNotation.length-1][1] = "";
+		}
+
 		moveHistory.pop();
-		gameNotation.pop();
 		pieceIds = game[game.length-1];
 		setupBoard(pieceIds);
 		updateStatus();
@@ -424,8 +429,9 @@ function getNotation(pieceIds, move){
 		pieceIds[posToNum(move.dest)] = - move.pieceId;
 		var capturePositions = findValidPieceMoves(pieceIds,move.dest,true)[1];
 		for(var i=0; i<capturePositions.length; i++){
-			if(Math.abs(pieceIds[capturePositions[i]])===typeId){
+			if(Math.abs(pieceIds[posToNum(capturePositions[i])])===typeId && capturePositions[i]!==move.origin){
 				initPositions.push(capturePositions[i]);
+				console.log(initPositions);
 			}
 		}		
 		pieceIds[posToNum(move.dest)] = finalPosId;
@@ -518,6 +524,9 @@ function validMove(pieceIds,move){
 	var initPos = move.origin;
 	var valid = true;
 	var j = pieceIds[posToNum(move.dest)];
+	if(j/move.pieceId>0){
+		return false;
+	}
 	pieceIds[posToNum(initPos)]=noPiece;
 	pieceIds[posToNum(move.dest)]=move.pieceId;
 	
@@ -568,7 +577,7 @@ function findValidKingMoves(pieceIds, position, noCheckAllowed){
 	var row = 4.5-side*3.5;
 	leftRookPos = 'a'+row; 
 	rightRookPos = 'h'+row;
-	if(pos[1]==row && (!noCheckAllowed || !detectCheck(pieceIds, side))){
+	if(pos==='e'+row && (!noCheckAllowed || !detectCheck(pieceIds, side))){
 		if(pieceIds[posToNum('b'+row)]===noPiece && pieceIds[posToNum('c'+row)]===noPiece && pieceIds[posToNum('d'+row)]===noPiece && pieceIds[posToNum(leftRookPos)]===pieceToNum("R", side)){
 			if(validMove(pieceIds, {origin:position, dest:kingLeftPos, pieceId:pieceId})){
 				pieceIds[posToNum(position)] = noPiece;
