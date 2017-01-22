@@ -350,21 +350,21 @@ function makeMove(pieceIds, move){
 	}
 	pieceIds[posToNum(move.dest)] = move.pieceId;
 	
-	if(Math.abs(move.origin[1] - move.dest[1])===1 && Math.abs(findCol(move.origin[0]) - findCol(move.dest[0]))===1 && !captureMade && type===typeIds.P){
+	if(Math.abs(move.origin[1] - move.dest[1])===1 && Math.abs(findCol(move.origin[0]) - findCol(move.dest[0]))===1 && !captureMade && type===pieceToNum("P", 1)){
 		//validMoves[posToNum(move.dest[0]+move.origin[1])] = [];
 		pieceIds[posToNum(move.dest[0]+move.origin[1])] = noPiece;
 	}
-	if(move.origin==="e"+move.origin[1] && move.dest==="c"+move.origin[1] && type===typeIds.K){
+	if(move.origin==="e"+move.origin[1] && move.dest==="c"+move.origin[1] && type===pieceToNum("K", 1)){
 		pieceIds[posToNum("a"+move.origin[1])] = noPiece;
-		pieceIds[posToNum("d"+move.origin[1])] = side*typeIds.R;
+		pieceIds[posToNum("d"+move.origin[1])] = pieceToNum("R", side);
 	}	
-	if(move.origin==="e"+move.origin[1] && move.dest==="g"+move.origin[1] && move.pieceId[1]==='K'){
+	if(move.origin==="e"+move.origin[1] && move.dest==="g"+move.origin[1] && type===pieceToNum("K", 1)){
 		pieceIds[posToNum("h"+move.origin[1])] = noPiece;
-		pieceIds[posToNum("f"+move.origin[1])] = side*typeIds.R;
+		pieceIds[posToNum("f"+move.origin[1])] = pieceToNum("R", side);
 	}
 	if((side===-1 && move.dest[1]==="1") || (side===1 && move.dest[1]==="8")){
 		if(type===typeIds.P){
-			pieceIds[posToNum(move.dest)] = side*typeIds.Q;
+			pieceIds[posToNum(move.dest)] = pieceToNum("Q", side);
 		}
 	}
 	/*
