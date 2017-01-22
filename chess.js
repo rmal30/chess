@@ -75,6 +75,7 @@ function play(){
 		applyMove(bestMove);
 	}
 	updateStatus();
+	document.getElementById("pending").style.visibility = "hidden";
 }
 
 function findValidMoves(pieceIds, noCheckAllowed){
@@ -350,7 +351,7 @@ function makeMove(pieceIds, move){
 	}
 	pieceIds[posToNum(move.dest)] = move.pieceId;
 	
-	if(Math.abs(move.origin[1] - move.dest[1])===1 && Math.abs(findCol(move.origin[0]) - findCol(move.dest[0]))===1 && !captureMade && type===pieceToNum("P", 1)){
+	if(type===pieceToNum("P", 1) && !captureMade && Math.abs(move.origin[1] - move.dest[1])===1 && Math.abs(findCol(move.origin[0]) - findCol(move.dest[0]))===1){
 		//validMoves[posToNum(move.dest[0]+move.origin[1])] = [];
 		pieceIds[posToNum(move.dest[0]+move.origin[1])] = noPiece;
 	}
@@ -510,7 +511,7 @@ function validMove(pieceIds,move){
 		valid = false;
 	}
 	pieceIds[posToNum(initPos)]=move.pieceId;
-	pieceIds[posToNum(move.dest)]= noPiece;
+	pieceIds[posToNum(move.dest)] = noPiece;
 	
 	if(j!==noPiece){
 		pieceIds[posToNum(move.dest)] = j;
@@ -553,7 +554,7 @@ function findValidKingMoves(pieceIds, position, noCheckAllowed){
 	var row = 4.5-side*3.5;
 	leftRookPos = 'a'+row; 
 	rightRookPos = 'h'+row;
-	if(!noCheckAllowed || !detectCheck(pieceIds, side)){
+	if(pos[1]==row && (!noCheckAllowed || !detectCheck(pieceIds, side))){
 		if(pieceIds[posToNum('b'+row)]===noPiece && pieceIds[posToNum('c'+row)]===noPiece && pieceIds[posToNum('d'+row)]===noPiece && pieceIds[posToNum(leftRookPos)]===pieceToNum("R", side)){
 			if(validMove(pieceIds, {origin:position, dest:kingLeftPos, pieceId:pieceId})){
 				pieceIds[posToNum(position)] = noPiece;
@@ -940,6 +941,13 @@ function detectCheck(pieceIds,side){
 	if((pRight!==undefined && pieceIds[posToNum(pRight)] == -typeIds.P*side) || (pLeft!==undefined && pieceIds[posToNum(pLeft)] == -typeIds.P*side)){
 		return true;
 	} 
+	var moves = findAllPieceMoves(pos,pieceToNum("K",side));
+	for(var i=0; i<moves.length; i++){
+		if(pieceIds[posToNum(moves[i])]==pieceToNum("K", -side)){
+			return true;
+		}
+	}
+
 	var rayPieceTypes = ["R", "B", "N"];
 	var threatType, pieceId, pieceType, testPiece;
 	for(var j=0; j<3; j++){
