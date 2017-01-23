@@ -298,7 +298,7 @@ function findBestMoves(pieceIds, side, depth, a, b){
 			if(replies.length>0){
 				newScore = - replies[0][1];
 			}else{
-				if(detectCheck(pieceIds, -side)){
+				if(detectCheck(pieceIds2, -side)){
 					newScore = 1000;
 				}else{
 					newScore = 0;
@@ -419,6 +419,76 @@ function makeMove(pieceIds, move, controllingList, validMoves){
 		validMoves[finalPieces[i]] = findValidPieceMoves(pieceIds, getPosFromId(finalPieces[i]), false);
 	}
 	validMoves[posToNum(move.dest)] = findValidPieceMoves(pieceIds, move.dest, false);
+}
+
+
+function floodFill(kingSafetyTable, posId){
+	kingSafetyTable[posId] = 1;
+	var options = [];
+	var newPos;
+	if(posId>=8){
+		options.push(-8)
+		if(posId % 8>0){
+			options.push(-9)
+		}
+		if(posId % 8 < 7){
+			options.push(-7)
+		}
+	}
+	if(posId % 8>0){
+		options.push(-1)
+	}
+	if(posId % 8 < 7){
+		options.push(1)
+	}
+	if(posId<56){
+		options.push(8);
+		if(posId % 8>0){
+			options.push(7)
+		}
+		if(posId % 8 < 7){
+			options.push(9)
+		}
+	}
+
+	for(var i=0; i<options.length; i++){
+		newPos = posId+options[i];
+		if(kingSafetyTable[newPos]==0){
+			floodFill(kingSafetyTable, newPos);
+		}
+	}
+
+}
+
+function genKingSafetyTable(pieceIds, side, validMoves){
+	var checkTable = [];
+	for(var i=0; i<numSquares; i++){
+		if(pieceIds[i]===0 || pieceIds[i] === pieceToNum("K", side)){
+			checkTable[i] = 0;
+		}else{
+			checkTable[i] = -1;
+		}
+	}
+	for(var i=0; i<numSquares; i++){
+		if(pieceIds[i]*side<0){
+			if(pieceIds[i]!==pieceToNum("P", -side)){
+				for(var j=0; j<validMoves[i][0].length; j++){	
+					checkTable[posToNum(validMoves[i][0][j])] = -1;			
+				}
+			}else{
+				if(i%8 < 7){
+					checkTable[i-8*side+1] = -1;
+				}
+				if(i&7 > 0){
+					checkTable[i-8*side-1] = -1;
+				}
+			}
+			for(var j=0; j<validMoves[i][1].length; j++){
+				checkTable[posToNum(validMoves[i][1][j])] = -1;
+			}
+		}
+	}
+	return checkTable;
 }
 
 
@@ -824,6 +894,22 @@ function pieceValue(typeId){
 	var pieceValues = [0, 1, 3, 3.25, 5, 9, 39.5]; 
 	return pieceValues[typeId];
 }
+
+
+function kingFreedom(pieceIds, side, validMoves, position){
+	var kingSafetyTable = genKingSafetyTable(pieceIds, side, validMoves);
+	var count = 0;
+	if(kingSafetyTable[position]===0){
+		floodFill(kingSafetyTable, position);
+	}
+	for(var i=0; i<numSquares; i++){
+		if(kingSafetyTable[i]===1){
+			count++;
+		}
+	}
+	return count;
+}
+
 function evaluateBoard(pieceIds, validMoves){
 	var hash = pieceIds.toString();
 	numCalls.eval++;
@@ -831,22 +917,33 @@ function evaluateBoard(pieceIds, validMoves){
 		var scores = [0,0];
 		var mobilityScore = [0,0];
 		var materialScore = [0,0];
+		var kingFreedomScore = [0,0];
+		//
 		var possibleMoves;
 		var pieceId;
+		var kingPos = [0,0];
 		for(var i=0; i<numSquares; i++){
 			pieceId = pieceIds[i]; 
 			if(pieceId>0){
+				if(pieceId===pieceToNum("K", 1)){
+					kingPos[0] = i;
+				}
 				possibleMoves = validMoves[i];
 				mobilityScore[0]+= possibleMoves[0].length+possibleMoves[1].length;
 				materialScore[0]+= pieceValue(Math.abs(pieceId));
 			}else if(pieceId<0){
+				if(pieceId===pieceToNum("K", -1)){
+					kingPos[1] = i;
+				}
 				possibleMoves = validMoves[i];
 				mobilityScore[1]+= possibleMoves[0].length+possibleMoves[1].length;
 				materialScore[1]+= pieceValue(Math.abs(pieceId));
 			}
 		}
-		scores[0] = mobilityScore[0]*0.05+materialScore[0];
-		scores[1] = mobilityScore[1]*0.05+materialScore[1];
+		kingFreedomScore[0] = kingFreedom(pieceIds, 1, validMoves,kingPos[0]);
+		kingFreedomScore[1] = kingFreedom(pieceIds, -1, validMoves,kingPos[1]);
+		scores[0] = mobilityScore[0]*0.05+materialScore[0]+kingFreedomScore[0]*0.005;
+		scores[1] = mobilityScore[1]*0.05+materialScore[1]+kingFreedomScore[1]*0.005;
 		numCalls.evalM++;
 		boardTable[hash] = scores;
     	return scores;
@@ -888,95 +985,6 @@ function deepEvaluation(pieceIds){
 	scores[0] = mobilityScore[0]*0.05+materialScore[0];
 	scores[1] = mobilityScore[1]*0.05+materialScore[1];
 	return scores;
-}
-
-function findControllingPieces(pieceIds, boardTypes, position){
-	var controllingPieces = [];
-	var rayPieceTypes = ["R", "B", "Q"];
-	numCalls.fcp++;
-	var threatType, pieceType, possibleThreats, possibleThreats2, numThreats;
-	var pieceId = pieceIds[posToNum(position)];
-	for(var j=0; j<3; j++){
-		pieceType = rayPieceTypes[j];
-		var valid = false;
-		var piecesOfType = boardTypes[pieceToNum(pieceType,1)];
-		for(var i=0; i<piecesOfType.length; i++){
-			if(checkRelations([piecesOfType[i], position], pieceType)){
-				valid = true;
-			}
-		}
-		if(valid){
-			pieceIds[posToNum(position)] = pieceToNum(pieceType,1);
-			possibleThreats = findValidPieceMoves(pieceIds, position,false)[1];
-			pieceIds[posToNum(position)] = pieceToNum(pieceType,-1);
-			possibleThreats2 = findValidPieceMoves(pieceIds, position,false)[1];
-			pieceIds[posToNum(position)] = pieceId;
-			numCalls.fcpm++;
-			for(var i=0; i<possibleThreats.length; i++){
-				pieceId = pieceIds[posToNum()];
-				if(pieceId!==noPiece){
-					threatType = pieceTypes[Math.abs(pieceId)];
-					if(threatType===pieceType){
-						controllingPieces.push(possibleThreats[i]);
-					}
-				}
-			}
-			
-			for(var i=0; i<possibleThreats2.length; i++){
-				pieceId = pieceIds[posToNum(possibleThreats2[i])];
-				if(pieceId!==noPiece){
-					threatType = pieceTypes[Math.abs(pieceId)];
-					if(threatType===pieceType){
-						controllingPieces.push(possibleThreats2[i]);
-					}
-				}
-			}
-
-		}
-	}
-	var neighbours = findAllPieceMoves(position, pieceToNum("K",1));
-	for(var i=0; i<neighbours.length; i++){
-		pieceId = pieceIds[posToNum(neighbours[i])];
-		if(pieceId!==noPiece){
-			threatType = pieceTypes[Math.abs(pieceId)];
-			if(threatType==='K'){
-				controllingPieces.push(pieceId);
-			}
-		}
-	}
-
-	var neighbours = findAllPieceMoves(position,pieceToNum("N",1));
-	for(var i=0; i<neighbours.length; i++){
-		pieceId = pieceIds[posToNum(neighbours[i])];
-		if(pieceId!==noPiece){
-			if(pieceTypes[Math.abs(pieceId)]==='N'){
-				controllingPieces.push(pieceId);
-			}
-		}
-	}
-
-	var pawnMoves1 = findAllPieceMoves(position, pieceToNum("P",1));
-	var pawnMoves2 = findAllPieceMoves(position, pieceToNum("P",-1));
-	for(var i=0; i<pawnMoves1.length; i++){
-		pieceId = pieceIds[posToNum(pawnMoves1[i])];
-		if(pieceId!==noPiece){
-			threatType = pieceTypes[Math.abs(pieceId)];
-			if(threatType==='P' && pieceId>0){
-				controllingPieces.push(pieceId);
-			}
-		}
-	}
-	for(var i=0; i<pawnMoves2.length; i++){
-		pieceId = pieceIds[posToNum(pawnMoves2[i])];
-		if(pieceId!==noPiece){
-			threatType = pieceTypes[Math.abs(pieceId)];
-			if(threatType==='P' && pieceId<0){
-				controllingPieces.push(pieceId);
-			}
-		}
-	}
-
-	return controllingPieces;
 }
 
 function findPieceId(pieceIds, pieceId){
