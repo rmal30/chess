@@ -395,14 +395,19 @@ function makeMove(pieceIds, move, controllingList, validMoves){
 	
 	if(type===pieceToNum("P", 1) && !captureMade && Math.abs(move.origin[1] - move.dest[1])===1 && Math.abs(findCol(move.origin[0]) - findCol(move.dest[0]))===1){
 		pieceIds[posToNum(move.dest[0]+move.origin[1])] = noPiece;
+		validMoves[posToNum(move.dest[0]+move.origin[1])] = [];
 	}
 	if(move.origin==="e"+move.origin[1] && move.dest==="c"+move.origin[1] && type===pieceToNum("K", 1)){
 		pieceIds[posToNum("a"+move.origin[1])] = noPiece;
+		validMoves[posToNum("a"+move.origin[1])] = [];
 		pieceIds[posToNum("d"+move.origin[1])] = pieceToNum("R", side);
+		validMoves[posToNum("d"+move.origin[1])] = findValidPieceMoves(pieceIds,"d"+move.origin[1], false);
 	}	
 	if(move.origin==="e"+move.origin[1] && move.dest==="g"+move.origin[1] && type===pieceToNum("K", 1)){
 		pieceIds[posToNum("h"+move.origin[1])] = noPiece;
+		validMoves[posToNum("h"+move.origin[1])] = [];
 		pieceIds[posToNum("f"+move.origin[1])] = pieceToNum("R", side);
+		validMoves[posToNum("f"+move.origin[1])] = findValidPieceMoves(pieceIds,"f"+move.origin[1], false);
 	}
 	if((side===-1 && move.dest[1]==="1") || (side===1 && move.dest[1]==="8")){
 		if(type===pieceToNum("P",1)){
@@ -985,7 +990,7 @@ function detectCheck(pieceIds,side){
 	var possibleThreats, numThreats;
 	var posId = findPieceId(pieceIds, pieceToNum("K", side));
 	if(posId==undefined){
-		return false;
+		return true;
 	}
 	var pos = getPosFromId(posId);
 	var pLeft = adjustPosition(pos, [-1, side]);
