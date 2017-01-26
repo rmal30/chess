@@ -5,10 +5,9 @@ var order = [4, 2, 3, 5, 6, 3, 2, 4];
 var moveHistory;
 var pieceTypes = ['-', 'P', 'N', 'B', 'R', 'Q', 'K'];
 var gameNotation;
-var boardTable = {};
 var noPiece = 0;
 var numSquares = 64;
-
+var sliceNum = 32;
 var rookPaths = [-8, -1, 1, 8];
 var bishopPaths = [-9, -7, 7, 9];
 var whitePawnPaths = [7, 8, 9];
@@ -16,15 +15,17 @@ var blackPawnPaths = [-7, -8, -9];
 var queenPaths = [-9, -8, -7, -1, 1, 7, 8, 9];
 var kingPaths = [-9, -8, -7, -1, 1, 7, 8, 9];
 var knightPaths = [-17,-15,-10,-6, 6, 10, 15, 17];
-var pieceValues = [0, 1, 3, 3.25, 5, 9, 43.2]; 
-
+var pieceValues = [0, 1, 3, 3.25, 5, 9, 39.5]; 
+var winScore = 100000;
 var bestMoves;
+var bestMoveTable;
 var numCalls = {eval:0, p:0, k:0, n:0, moves:0, check:0, umt:0, umtm:0, fcp:0, upInit:0, upFinal:0, fcpm:0};
 var currentSide, pendingMove;
+init();
 function init(){
 	moveHistory=[];
 	gameNotation = [];
-	boardTable = {};
+	bestMoveTable = {};
 	currentSide=1;
 	pendingMove = false;
 	pieceIds = [];
@@ -64,28 +65,26 @@ function undo(){
 	if(game.length>1){
 		currentSide = -currentSide;
 		game.pop();
-		if(currentSide==1){
+		if(currentSide===1){
 			gameNotation.pop();
 		}else{
 			gameNotation[gameNotation.length-1][1] = "";
 		}
 		moveHistory.pop();
-		pieceIds = game[game.length-1];
+		pieceIds = game[game.length-1].slice();
 		setupBoard(pieceIds);
 		updateStatus();
 	}
 }
 function play(){
     var level = parseInt(document.getElementById("level").value);
-	bestMoves = findBestMoves(pieceIds, currentSide, level,level, -100, 100);
+	bestMoves = findBestMoves(pieceIds, currentSide, level,level, -1000, 1000);
 	if(bestMoves.length>0){
-		var bestMove = bestMoves[Math.floor(bestMoves.length*Math.random())];
-		applyMove(bestMove[0]);
+		var randNum = Math.floor((bestMoves.length-1)*Math.random())+1;
+		var bestMove = bestMoves[randNum];
+		applyMove(bestMove);
 	}
 	updateStatus();
-	if(Object.keys(boardTable).length>1000000){
-		boardTable = {};
-	}
 	
 	document.getElementById("pending").style.visibility = "hidden";
 }
@@ -93,7 +92,7 @@ function play(){
 function findValidMoves(pieceIds, noCheckAllowed){
 	var validMoves = [];
 	for(var i=0; i<numSquares; i++){
-		if(pieceIds[i]!=0){
+		if(pieceIds[i]!==0){
 			validMoves.push(findValidPieceMoves(pieceIds,i,noCheckAllowed));
 		}else{
 			validMoves.push([]);
@@ -102,14 +101,26 @@ function findValidMoves(pieceIds, noCheckAllowed){
 	return validMoves;
 }
 
+function findAllMoves(pieceIds){
+	var allMoves = [];
+	for(var i=0; i<numSquares; i++){
+		if(pieceIds[i]!==0){
+			allMoves.push(findAllPieceMoves(pieceIds,i));
+		}else{
+			allMoves.push([]);
+		}
+	}
+	return allMoves;
+}
+
 function startGame(){
     init();
     doPlay();
 }
 
 function doPlay(){
-    var compPlayer= document.getElementById("compPlayer").value;
-    if(compPlayer==currentSide || compPlayer==2){
+	var compPlayer= parseInt(document.getElementById("compPlayer").value);
+    if(compPlayer===currentSide || compPlayer===2){
         document.getElementById("pending").style.visibility = "visible";
         setTimeout(play, 200);
     }else{
@@ -120,7 +131,7 @@ function doPlay(){
 function groupPieceIdsByType(pieceIds){
 	var types = [[],[],[],[],[],[]];
 	for(var i=0; i<numSquares; i++){
-		if(pieceIds[i]!=0){
+		if(pieceIds[i]!==0){
 			types[Math.abs(pieceIds[i]) - 1].push(i);
 		}
 	}
@@ -130,49 +141,53 @@ function groupPieceIdsByType(pieceIds){
 function evaluateScore(pieceIds, validMoves, side){
 	var scores = evaluateBoard(pieceIds, validMoves);
 	var score;
-	score = (scores[0] - scores[1])*side;	
+	score = Math.round((scores[0] - scores[1])*side*100)/100;	
 	return score;
 }
 
 function findAllPieceMoves(pieceIds, position){
 	var pos = position;
 	var pieceId = pieceIds[pos];
+	var typeId = Math.abs(pieceId);
 	var positions = [];
 	var vectors, p;
 	var numPaths = 4;
-	switch(pieceId){
-		case -1: vectors = blackPawnPaths; break;
-		case 1: vectors = whitePawnPaths; break;
-		case -2: case 2: vectors = knightPaths; numPaths = 8; break;
-		case -3: case 3: vectors = bishopPaths; break;
-		case -4: case 4: vectors = rookPaths; break;
-		case -5: case 5: case -6: case 6: 
+	switch(typeId){
+		case 1: 
+		 if(pieceId===1){
+		 	vectors = whitePawnPaths;
+		 }else{
+		 	vectors = blackPawnPaths;
+		 }
+		 break;
+		case 2: vectors = knightPaths; numPaths = 8; break;
+		case 3: vectors = bishopPaths; break;
+		case 4: vectors = rookPaths; break;
+		
+		case 5: 
+		case 6: 
 			vectors = queenPaths; numPaths = 8; break;
 	}
-	
-	switch(pieceId){
-		case -3: case 3: case -4: case 4: case -5: case 5:
-			for(var i=0; i<numPaths; i++){
-				pos = position;
-				p = noPiece;
-				while(pos!==-1 && p===noPiece){
-					pos = adjustPosition(pos, vectors[i]);		
-					if(pos!==-1){
-						p = pieceIds[pos];
-						positions.push(pos);
-					}
-				}
-			}
-			break;
-		case -6: case -2: case -1: case 1: case 2: case 6:
-			for(var i=0; i<numPaths; i++){
-				pos = adjustPosition(position, vectors[i]);
+	if(typeId>=3 && typeId<=5){
+		for(var i=0; i<numPaths; i++){
+			pos = position;
+			p = noPiece;
+			while(pos!==-1 && p===noPiece){
+				pos = adjustPosition(pos, vectors[i]);		
 				if(pos!==-1){
+					p = pieceIds[pos];
 					positions.push(pos);
 				}
-			}	
-			break;
-    }	
+			}
+		}
+	}else{
+		for(var i=0; i<numPaths; i++){
+			pos = adjustPosition(position, vectors[i]);
+			if(pos!==-1){
+				positions.push(pos);
+			}
+		}
+	}
 	return positions;
 }
 
@@ -182,12 +197,12 @@ function checkRelations(posArray, pieceType){
 	if(pieceType==='R'){
 		valid = true;
 		for(var i=1; i<numPos; i++){
-			if(posArray[i]%8!=posArray[0]%8){valid=false; break;}
+			if(posArray[i]%8!==posArray[0]%8){valid=false; break;}
 		}
 		if(!valid){
 			valid = true;
 			for(var i=1; i<numPos; i++){
-				if(posArray[i]>>3!=posArray[0]>>3){valid=false; break;}
+				if(posArray[i]>>3!==posArray[0]>>3){valid=false; break;}
 			}
 		}
 		return valid;
@@ -212,36 +227,34 @@ function checkRelations(posArray, pieceType){
 }
 
 
-function generateMoveList(pieceIds, side, validMoves){
+function generateMoveList(pieceIds, side, noCheckAllowed){
 	var moveList = [];
 	for(var i=0; i<numSquares; i++){
 		var pieceId = pieceIds[i]
 		if(pieceId*side>0){
-			var options = validMoves[i]; 
+			var options = findValidPieceMoves(pieceIds, i, noCheckAllowed); 
 			var moves = options[0];
 			var captures = options[1];
-			for(var j=0; j<moves.length; j++){
-				moveList.push([pieceId, i, moves[j]]);
-			}
 			for(var j=0; j<captures.length; j++){
 				moveList.push([pieceId, i, captures[j]]);
+			}
+			for(var j=0; j<moves.length; j++){
+				moveList.push([pieceId, i, moves[j]]);
 			}
 		}
 	}
 	return moveList;
 }
 
-function genControllingList(pieceIds){
+function genControllingList(pieceIds, allMoves){
 	var controllingPieces = [];
-	var allMoves;
 	for(var i=0; i<numSquares; i++){
 		controllingPieces[i] = [];
 	}
 	for(var i=0; i<numSquares; i++){
 		if(pieceIds[i]!==0){
-			allMoves = findAllPieceMoves(pieceIds, i);
-			for(var j=0; j<allMoves.length; j++){
-				controllingPieces[allMoves[j]].push(i);
+			for(var j=0; j<allMoves[i].length; j++){
+				controllingPieces[allMoves[i][j]].push(i);
 			}
 		}
 	}
@@ -249,75 +262,86 @@ function genControllingList(pieceIds){
 }
 
 function copyArr(arr){
-	var arr2 = [];
 	var arrLength = arr.length;
-	for(var i=0; i<arrLength; i++){
-		arr2[i] = arr[i];
+	if(arrLength>=sliceNum){
+		return arr.slice(0);
+	}else{
+		var arr2 = [];
+		for(var i=0; i<arrLength; i++){
+			arr2[i] = arr[i];
+		}
+		return arr2;
 	}
-	return arr2;
+	
 }
 
-function copyValidMovesArr(arr){
-	var validMoves2 = [];
+function copyAllMovesArr(arr){
+	var allMoves2 = [];
 	for(var i=0; i<numSquares; i++){
-		validMoves2.push([]);
-		if(arr[i].length>0){
-			validMoves2[i][0] = copyArr(arr[i][0]);
-			validMoves2[i][1] = copyArr(arr[i][1]);
-		}
+		allMoves2[i] = copyArr(arr[i]);
 	}
-	return validMoves2;
+	return allMoves2;
 }
+
 
 function findBestMoves(pieceIds, side, depth, maxDepth, a, b){
-	var bestScore = -1000;
-	var bestMoves = [];
-	var newScore;
-	var replies;
-	var pieceIds2 = [];
-	var validMoves2;
-	var pieceId;
-	var validMoves = findValidMoves(pieceIds, depth==maxDepth);
-	var validMovesStr;
-	var controllingList;
-	if(depth<=1){
-		controllingList = genControllingList(pieceIds);
-	}
-	var moveList = generateMoveList(pieceIds,side, validMoves);
-	
-	for(var i=0; i<moveList.length; i++){	
-		pieceIds2 = copyArr(pieceIds);
-		if(depth<=1){
-			validMoves2 = copyValidMovesArr(validMoves);
-		}
+	var lowestDepth = depth<=1;
+	var hash = depth+side+pieceIds.toString();
+	if(bestMoveTable[hash]==null){
+		var bestScore = -winScore;
+		var bestMoves = [];
+		var newScore,replies,pieceIds2, allMoves2, allMoves, controllingList;
+		var moveList = generateMoveList(pieceIds,side, depth===maxDepth);
 		
-		makeMove(pieceIds2, moveList[i], validMoves2, controllingList);
-		if(depth>1){
-			replies = findBestMoves(pieceIds2,-side, depth-1,maxDepth, -b, -a);
-			if(replies.length>0){
-				newScore = - replies[0][1];
-			}else{
-				if(detectCheck(pieceIds2, -side)){
-					newScore = 1000;
-				}else{
-					newScore = 0;
-				}
-				
+		if(lowestDepth){
+			allMoves = findAllMoves(pieceIds);
+			controllingList = genControllingList(pieceIds, allMoves);
+		}
+		for(var i=0; i<moveList.length; i++){	
+			pieceIds2 = copyArr(pieceIds);
+			if(lowestDepth){
+				allMoves2 = copyAllMovesArr(allMoves);
 			}
-		}else{
-			newScore = evaluateScore(pieceIds2, validMoves2, side);
+			makeMove(pieceIds2, moveList[i], allMoves2, controllingList, lowestDepth);
+			if(!lowestDepth){
+				replies = findBestMoves(pieceIds2,-side, depth-1,maxDepth, -b, -a);
+				if(replies){
+					newScore = - replies[0];
+				}else{
+					if(detectCheck(pieceIds2, -side)){
+						newScore = winScore;
+					}else{
+						newScore = 0;
+					}				
+				}
+			}else{
+				newScore = evaluateScore(pieceIds2, allMoves2, side);
+			}
+			if(newScore>bestScore){
+				bestScore = newScore;
+				bestMoves = [];
+			}
+			if(newScore===bestScore){
+				bestMoves.push(moveList[i]);
+			}
+			if(bestScore>a){a = bestScore;}
+			if(bestScore===winScore){
+				bestMoves.unshift(bestScore); 
+				bestMoveTable[hash] = bestMoves;
+				return bestMoves;
+			}
+			if(a>b){bestMoves.unshift(bestScore); 
+				bestMoveTable[hash] = bestMoves;
+				return bestMoves;
+			}				
 		}
-		if(newScore>bestScore){
-			bestScore = newScore;
-			bestMoves = [];
-		}
-		if(newScore>=bestScore){
-			bestMoves.push([moveList[i], newScore]);
-		}
-		if(bestScore>a){a = bestScore;}
-		if(a>b){ return bestMoves;}				
+		bestMoves.unshift(bestScore);
+		bestMoveTable[hash] = bestMoves;
+		return bestMoves;
+	}else{
+		return bestMoveTable[hash];
 	}
-	return bestMoves;	
+		
 }
 function updateStatus(){
 	var scores = deepEvaluation(pieceIds);
@@ -363,130 +387,83 @@ function getCell(x, y){
 	return col+row*8;
 }
 
-function makeMove(pieceIds, move, validMoves, controllingList){
+function makeMove(pieceIds, move, allMoves, controllingList, updateAllMoves){
 	var captureMade = false;
 	var id = move[0];
 	var side = Math.sign(id);
 	var type = Math.abs(id);
 	var moveOrigin = move[1];
 	var moveDest = move[2];
-	
-	var updateValidMoves = controllingList!=null;
-	
 	pieceIds[moveOrigin] = noPiece;
 	if(pieceIds[moveDest]!==noPiece){
 		captureMade = true;
 	}
 	pieceIds[moveDest] = id;
-	
-
 	if(type===1 && !captureMade && (Math.abs(moveOrigin - moveDest)===7 || Math.abs(moveOrigin - moveDest)===9)){
-		pieceIds[(moveOrigin>>3)<<3 + moveDest%8] = noPiece;
-		if(updateValidMoves){
-			validMoves[(moveOrigin>>3)<<3 + moveDest%8] = [];
+		pieceIds[((moveOrigin>>3)<<3) + moveDest%8] = noPiece;
+		if(updateAllMoves){
+			allMoves[(moveOrigin>>3)<<3 + moveDest%8] = [];
 		}
 	}
-	
 	var rank = 28 - 28*side;
-	if(type==6 && moveOrigin === 4 + rank){
+	if(type===6 && moveOrigin === 4 + rank){
 		if(moveDest === 2 + rank){
 			pieceIds[rank] = noPiece;
 			pieceIds[3+rank] = 4*side;
-		
-			if(updateValidMoves){
-				validMoves[rank] = [];
-				validMoves[3+rank] = findValidPieceMoves(pieceIds,3+rank, false);
+			if(updateAllMoves){
+				allMoves[rank] = [];
+				allMoves[3+rank] = findAllPieceMoves(pieceIds,3+rank);
 			}
-		
 		}	
 		if(moveDest===6+rank){
 			pieceIds[7+rank] = noPiece;
 			pieceIds[5+rank] = 4*side;
-			
-			if(updateValidMoves){
-				validMoves[7+rank] = [];
-				validMoves[5+rank] = findValidPieceMoves(pieceIds,5+rank, false);
+			if(updateAllMoves){
+				allMoves[7+rank] = [];
+				allMoves[5+rank] = findAllPieceMoves(pieceIds,5+rank);
 			}
-			
 		}
 	}
-	if(moveDest>>3<<3===rank){
+	if(moveDest>>3===0 || moveDest>>3===7){
 		if(type===pieceToNum("P",1)){
 			pieceIds[moveDest] = pieceToNum("Q", side);
 		}
 	}
 	
-	if(updateValidMoves){
-		validMoves[moveOrigin] = [];
-		var initPieces = controllingList[moveOrigin];
-		var pieceId, typeId, initPiecePos;
-		for(var i=0; i<initPieces.length; i++){
-			initPiecePos = initPieces[i];
-			pieceId = pieceIds[initPiecePos];
-			typeId = Math.abs(pieceId);
-			if(typeId>=3 && typeId<=5){
-				validMoves[initPiecePos] = findValidPieceMoves(pieceIds, initPiecePos, false);
-			}else if(typeId===1){
-				if(pieceId*side<0 && (initPiecePos - moveOrigin)%8!==0){
-					for(var j=0; j<validMoves[initPiecePos][1].length; j++){
-						if(validMoves[initPiecePos][1][j]==moveOrigin){
-							validMoves[initPiecePos][1].splice(j);
-						}
-					}
-				}else if(initPiecePos>>3===3.5-2.5*pieceId){
-					if(Math.abs(initPiecePos - moveOrigin)===16){
-						if(pieceIds[initPiecePos+8*pieceId]==noPiece){
-							validMoves[initPiecePos][0].push(moveOrigin);
-						}
-					}else{
-						validMoves[initPiecePos][0].push(moveOrigin);
-						if(pieceIds[initPiecePos+16*pieceId]==noPiece){
-							validMoves[initPiecePos][0].push(initPiecePos+16*pieceId);
-						}
-					}
-				}else if(Math.abs(initPiecePos - moveOrigin)===8){
-					validMoves[initPiecePos][0].push(moveOrigin);
-				}
-			}else if(pieceId*side>0){
-				validMoves[initPiecePos][0].push(moveOrigin);
-			}
-			
-		}
-		
-		var finalPieces = controllingList[moveDest];
-		for(var i=0; i<finalPieces.length; i++){
-			pieceId = pieceIds[finalPieces[i]];
-			typeId = Math.abs(pieceId);
-			if(typeId>=3 && typeId<=5){
-				validMoves[finalPieces[i]] = findValidPieceMoves(pieceIds, finalPieces[i], false);
-			}else if(typeId==1){
-				if(Math.abs(finalPieces[i] - moveDest)===8){
-					validMoves[finalPieces[i]][0] = [];
-				}else if(pieceId*side<0 && (finalPieces[i] - moveDest)%8!==0){
-					validMoves[finalPieces[i]][1].push(moveDest);
-				}else if(finalPieces[i]>>3==3.5-2.5*pieceId){
-					if(Math.abs(finalPieces[i] - moveDest)===16){
-						if(validMoves[finalPieces[i]][0][validMoves[finalPieces[i]][0].length - 1]==moveDest){
-							validMoves[finalPieces[i]][0].pop();
-						}
-					}
-				}
-			}else if(pieceId*side>0){
-				for(var j=0; j<validMoves[finalPieces[i]][0].length; j++){
-					if(validMoves[finalPieces[i]][0][j]==moveDest){
-						validMoves[finalPieces[i]][0].splice(j,1);
-					}
-				}
-			}	
-		}
-		validMoves[moveDest] = findValidPieceMoves(pieceIds, moveDest, false);
+	if(updateAllMoves){
+		updateMoveTable(pieceIds, allMoves, controllingList, moveOrigin, moveDest);
 	}
 	
 }
 
+function updateMoveTable(pieceIds, allMoves, controllingList, moveOrigin, moveDest){
+		allMoves[moveOrigin] = [];
+		var initPieces = controllingList[moveOrigin];
+		var typeId, initPiecePos, finalPiecePos;
+		for(var i=0; i<initPieces.length; i++){
+			initPiecePos = initPieces[i];
+			typeId = Math.abs(pieceIds[initPiecePos]);
+			if(typeId>=3 && typeId<=5){
+				allMoves[initPiecePos] = findAllPieceMoves(pieceIds, initPiecePos);
+			}
+		}
+		var finalPieces = controllingList[moveDest];
+		for(var i=0; i<finalPieces.length; i++){
+			finalPiecePos = finalPieces[i];
+			typeId = Math.abs(pieceIds[finalPiecePos]);
+			if(typeId>=3 && typeId<=5){
+				allMoves[finalPiecePos] = findAllPieceMoves(pieceIds, finalPiecePos);
+			}
+		}
+		allMoves[moveDest] = findAllPieceMoves(pieceIds, moveDest);
+}
+
 
 function floodFill(kingSafetyTable, posId){
-	kingSafetyTable[posId] = 1;
+	if(kingSafetyTable[posId]===0){
+		kingSafetyTable[posId] = 1;
+	}
+	
 	var options = [];
 	var newPos;
 	if(posId>=8){
@@ -516,7 +493,7 @@ function floodFill(kingSafetyTable, posId){
 
 	for(var i=0; i<options.length; i++){
 		newPos = posId+options[i];
-		if(kingSafetyTable[newPos]==0){
+		if(kingSafetyTable[newPos]===0){
 			floodFill(kingSafetyTable, newPos);
 		}
 	}
@@ -598,10 +575,10 @@ function getNotation(pieceIds, move){
 		var sameFile = false;
 		var sameRank = false;
 		for(var i=0; i<initPositions.length; i++){
-			if(initPositions[i]%8==move[1]%8){
+			if(initPositions[i]%8===move[1]%8){
 				sameFile = true;
 			}
-			if(initPositions[i]>>3==move[1]>>3){
+			if(initPositions[i]>>3===move[1]>>3){
 				sameRank = true;
 			}
 		}
@@ -616,14 +593,14 @@ function getNotation(pieceIds, move){
 	if(pieceType==="K" && move[1] % 8 === 4){
 		if(move[2]%8===6){
 			return "O-O";
-		}else if(move[2]%8==2){
+		}else if(move[2]%8===2){
 			return "O-O-O";
 		}
 	}
 	var pieceIds2 = pieceIds.slice();
-	makeMove(pieceIds2, move, findValidMoves(pieceIds2, false), genControllingList(pieceIds2, side));
+	makeMove(pieceIds2, move, findAllMoves(pieceIds2), genControllingList(pieceIds2, findAllMoves(pieceIds2)), false);
 	if(detectCheck(pieceIds2, -side)){
-		if(deepEvaluation(pieceIds2)[0.5+0.5*side]==0){
+		if(deepEvaluation(pieceIds2)[0.5+0.5*side]===0){
 			check="#";
 		}else{
 			check="+";
@@ -633,12 +610,12 @@ function getNotation(pieceIds, move){
 }
 
 function applyMove(move){
-	if(currentSide==1){
+	if(currentSide===1){
 		gameNotation.push([getNotation(pieceIds, move),""]);
 	}else{
 		gameNotation[gameNotation.length-1][1] = getNotation(pieceIds, move);
 	}
-	makeMove(pieceIds, move, findValidMoves(pieceIds, false), genControllingList(pieceIds));
+	makeMove(pieceIds, move, findAllMoves(pieceIds), genControllingList(pieceIds, findAllMoves(pieceIds)), false);
 	moveHistory.push(move);
 	currentSide = - currentSide;
 	game.push(pieceIds.slice());
@@ -714,7 +691,7 @@ function findValidKingMoves(pieceIds, position, noCheckAllowed){
 	var p, possibleMove;
 	for(var i=0; i<8; i++){
 		possibleMove = adjustPosition(pos, options[i]);
-		if(possibleMove!=-1){
+		if(possibleMove!==-1){
 			p = pieceIds[possibleMove];
 			if(!noCheckAllowed || validMove(pieceIds, [pieceId, position, possibleMove])){
 				if(p===noPiece){
@@ -763,8 +740,7 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
 	var side = pieceId > 0 ? 1 : -1;
 	var leftCapturePos = pos+8*side-1;
 	var rightCapturePos = pos+8*side+1;
-	if((pos&7)>0 && pieceIds[leftCapturePos]*side < 0){
-		
+	if((pos&7)>0 && pieceIds[leftCapturePos]*side < 0){		
 		if(!noCheckAllowed || validMove(pieceIds, [pieceId, position, leftCapturePos])){
 			positions[1].push(leftCapturePos);	
 		}
@@ -777,7 +753,7 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
 	}
 	if(pos>>3 == 3.5 + 0.5*side){
 		var move = moveHistory[moveHistory.length-1];
-		if(move!=null){
+		if(move){
 			var moveDest = move[2];
 			var moveOrigin = move[1];
 			if(move[0] === -side && (moveOrigin>>3===3.5+2.5*side)){
@@ -786,7 +762,7 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
 				var enl = pieceIds[enPassantLeft];
 				var enr = pieceIds[enPassantRight];
 				
-				if(enPassantLeft!=-1 && enl*side<0 && moveDest===enPassantLeft){
+				if(enPassantLeft!==-1 && enl*side<0 && moveDest===enPassantLeft){
 					leftCapturePos = adjustPosition(pos, -1+8*side);
 					if(!noCheckAllowed){
 						positions[1].push(leftCapturePos);
@@ -830,7 +806,7 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
 		if(!noCheckAllowed || validMove(pieceIds,[pieceId, pos, forwardPos])){
 			positions[0].push(forwardPos);
 		}
-		if(pos>>3==3.5-2.5*side && pieceIds[doubleForwardPos]===noPiece){
+		if(pos>>3===3.5-2.5*side && pieceIds[doubleForwardPos]===noPiece){
 			if(!noCheckAllowed || validMove(pieceIds,[pieceId, pos, doubleForwardPos])){
 				positions[0].push(doubleForwardPos);	
 			}
@@ -893,7 +869,7 @@ function findValidPieceMoves(pieceIds, position, noCheckAllowed){
 			var pieceId = pieceIds[position];
 			for(var i=0; i<8; i++){
 				possibleMove = adjustPosition(pos, options[i]);
-				if(possibleMove!=-1){
+				if(possibleMove!==-1){
 					p = pieceIds[possibleMove];
 					if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){
 						if(p===noPiece){
@@ -932,9 +908,7 @@ function adjustPosition(pos, delta){
 function kingFreedom(pieceIds, side, validMoves, position){
 	var kingSafetyTable = genKingSafetyTable(pieceIds, side, validMoves);
 	var count = 0;
-	if(kingSafetyTable[position]===0){
-		floodFill(kingSafetyTable, position);
-	}
+	floodFill(kingSafetyTable, position);
 	for(var i=0; i<numSquares; i++){
 		if(kingSafetyTable[i]===1){
 			count++;
@@ -943,42 +917,34 @@ function kingFreedom(pieceIds, side, validMoves, position){
 	return count;
 }
 
-function evaluateBoard(pieceIds, validMoves){
+function evaluateBoard(pieceIds, allMoves){
 	numCalls.eval++;
 	var scores = [];
-	var whiteMobilityScore = 0;
-	var blackMobilityScore = 0;
-	var whiteMaterialScore = 0;
-	var blackMaterialScore = 0;
-	var blackKingFreedomScore = 0;
-	var whiteKingFreedomScore = 0;
-	var pieceId,pieceMoves;
-	var whiteKingPos = 0;
-	var blackKingPos = 0;
+	var mobilityScore = [0,0];
+	var materialScore = [0,0];
+	var kingFreedomScore = [0,0];
+	var pieceId;
 	for(var i=0; i<numSquares; i++){
 		pieceId = pieceIds[i]; 
 		if(pieceId>0){
-			if(pieceId===6){
-				whiteKingPos = i;
+			if(pieceId!== 6){
+				mobilityScore[0]+= allMoves[i].length;
 			}
-			pieceMoves = validMoves[i];
-			whiteMobilityScore+= pieceMoves[0].length+pieceMoves[1].length;
-			whiteMaterialScore+= pieceValues[pieceId];
+			materialScore[0]+= pieceValues[pieceId];
 		}else if(pieceId<0){
-			if(pieceId===-6){
-				blackKingPos = i;
+			if(pieceId!==-6){
+				mobilityScore[1]+= allMoves[i].length;
 			}
-			pieceMoves = validMoves[i];
-			blackMobilityScore+= pieceMoves[0].length+pieceMoves[1].length;
-			blackMaterialScore+= pieceValues[-pieceId];
+			materialScore[1]+= pieceValues[-pieceId];
 		}
 	}
-	if(whiteMaterialScore < 50 || blackMaterialScore < 50){
-		whiteKingFreedomScore = kingFreedom(pieceIds, 1, validMoves,whiteKingPos);
-		blackKingFreedomScore = kingFreedom(pieceIds, -1, validMoves,blackKingPos);
+	if(materialScore[0] < 50 || materialScore[1] < 50){
+		var validMoves = findValidMoves(pieceIds, false);
+		kingFreedomScore[0] = kingFreedom(pieceIds, 1, validMoves, findPieceId(pieceIds, 6));
+		kingFreedomScore[1] = kingFreedom(pieceIds, -1, validMoves, findPieceId(pieceIds, -6));
 	}
-	scores.push(whiteMobilityScore*0.05+whiteMaterialScore+whiteKingFreedomScore*0.005);
-	scores.push(blackMobilityScore*0.05+blackMaterialScore+blackKingFreedomScore*0.005);
+	scores[0] = mobilityScore[0]*5+materialScore[0]*100+kingFreedomScore[0];
+	scores[1] = mobilityScore[1]*5+materialScore[1]*100+kingFreedomScore[1];
 	return scores;
 }
 function deepEvaluation(pieceIds){
@@ -989,33 +955,36 @@ function deepEvaluation(pieceIds){
 	var possibleMoves;
 	for(var i=0; i<numSquares; i++){
 			if(pieceIds[i]>0){
-				possibleMoves = findAllPieceMoves(pieceIds, i);
-				mobilityScore[0]+= possibleMoves.length;
+				possibleMoves = findValidPieceMoves(pieceIds, i, true);
+				mobilityScore[0]+= possibleMoves[0].length+possibleMoves[1].length;
 				materialScore[0]+= pieceValues[pieceIds[i]];
 			}else if(pieceIds[i]<0){
-				possibleMoves = findAllPieceMoves(pieceIds, i);
-				mobilityScore[1]+= possibleMoves.length;
+				possibleMoves = findValidPieceMoves(pieceIds, i, true);
+				mobilityScore[1]+= possibleMoves[0].length+possibleMoves[1].length;
 				materialScore[1]+= pieceValues[-pieceIds[i]];
 			}
 		}
+	
+	var validMoves = findValidMoves(pieceIds, false);
+	kingFreedomScore[0] = kingFreedom(pieceIds, 1, validMoves, findPieceId(pieceIds, 6));
+	kingFreedomScore[1] = kingFreedom(pieceIds, -1, validMoves, findPieceId(pieceIds, -6));
+
+	scores[0] = mobilityScore[0]*5+materialScore[0]*100+kingFreedomScore[0]-1;
+	scores[1] = mobilityScore[1]*5+materialScore[1]*100+kingFreedomScore[1]-1;
+
 	if(mobilityScore[0]===0){
-		materialScore[0] = 0;
+		scores[0] = 0;
 		if(!detectCheck(pieceIds, 1)){
-			mobilityScore[1]=0;
-			materialScore[1]=0;
+			scores[1]=0;
 		}
 	}
 	if(mobilityScore[1]===0){
-		materialScore[1] = 0;
+		scores[1] = 0;
 		if(!detectCheck(pieceIds, -1)){
-			mobilityScore[0]=0;
-			materialScore[0]=0;
+			scores[0]=0;
 		}
 	}
-	kingFreedomScore[0] = kingFreedom(pieceIds, 1, findValidMoves(pieceIds, false),findPieceId(pieceIds, 6))-1;
-	kingFreedomScore[1] = kingFreedom(pieceIds, -1, findValidMoves(pieceIds, false),findPieceId(pieceIds, -6))-1;
-	scores[0] = Math.round((mobilityScore[0]*0.05+materialScore[0]+kingFreedomScore[0]*0.002)*100)/100;
-	scores[1] = Math.round((mobilityScore[1]*0.05+materialScore[1]+kingFreedomScore[1]*0.002)*100)/100;
+
 	return scores;
 }
 
@@ -1035,12 +1004,12 @@ function detectCheck(pieceIds,side){
 	}
 	var pLeft = adjustPosition(pos, -1+side*8);
 	var pRight = adjustPosition(pos, 1+side*8);
-	if((pRight!==-1 && pieceIds[pRight] == pieceToNum("P", -side)) || (pLeft!==-1 && pieceIds[pLeft] == pieceToNum("P", -side))){
+	if((pRight!==-1 && pieceIds[pRight] === pieceToNum("P", -side)) || (pLeft!==-1 && pieceIds[pLeft] === pieceToNum("P", -side))){
 		return true;
 	} 
 	var moves = findAllPieceMoves(pieceIds, pos);
 	for(var i=0; i<moves.length; i++){
-		if(pieceIds[moves[i]]==pieceToNum("K", -side)){
+		if(pieceIds[moves[i]]===pieceToNum("K", -side)){
 			return true;
 		}
 	}
@@ -1073,7 +1042,7 @@ function setupBoard(pieceIds){
 	var piecesDOM = document.getElementById("pieces");
 	piecesDOM.innerHTML="";
 	for(var i=0; i<numSquares; i++){
-		if(pieceIds[i]!=0){
+		if(pieceIds[i]!==0){
 			addPiece(pieceIds[i], i, piecesDOM);
 		}
 	}
