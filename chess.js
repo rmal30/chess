@@ -7,7 +7,7 @@ var pieceTypes = ['-', 'P', 'N', 'B', 'R', 'Q', 'K'];
 var gameNotation;
 var noPiece = 0;
 var numSquares = 64;
-var sliceNum = 32;
+var sliceNum = 20;
 var rookPaths = [-8, -1, 1, 8];
 var bishopPaths = [-9, -7, 7, 9];
 var whitePawnPaths = [7, 8, 9];
@@ -78,10 +78,10 @@ function undo(){
 }
 function play(){
     var level = parseInt(document.getElementById("level").value);
-	bestMoves = findBestMoves(pieceIds, currentSide, level,level, -1000, 1000);
+	bestMoves = findBestMoves(pieceIds, currentSide, level,level, -winScore, winScore);
 	if(bestMoves.length>0){
-		var randNum = Math.floor((bestMoves.length-1)*Math.random())+1;
-		var bestMove = bestMoves[randNum];
+		var randNum = Math.floor(((bestMoves.length-1)/3)*Math.random())*3+1;
+		var bestMove = [bestMoves[randNum], bestMoves[randNum+1], bestMoves[randNum+2]];
 		applyMove(bestMove);
 	}
 	updateStatus();
@@ -272,13 +272,16 @@ function copyArr(arr){
 		}
 		return arr2;
 	}
-	
 }
 
 function copyAllMovesArr(arr){
 	var allMoves2 = [];
 	for(var i=0; i<numSquares; i++){
-		allMoves2[i] = copyArr(arr[i]);
+		if(arr[i].length>0){
+			allMoves2[i] = copyArr(arr[i]);
+		}else{
+			allMoves2[i] = [];
+		}
 	}
 	return allMoves2;
 }
@@ -291,8 +294,9 @@ function findBestMoves(pieceIds, side, depth, maxDepth, a, b){
 		var bestScore = -winScore;
 		var bestMoves = [];
 		var newScore,replies,pieceIds2, allMoves2, allMoves, controllingList;
-		var moveList = generateMoveList(pieceIds,side, depth===maxDepth);
-		
+		var moveList = generateMoveList(pieceIds,side, true);
+		var j=1;
+		if(moveList.length===0){bestMoveTable[hash] = []; return [];}
 		if(lowestDepth){
 			allMoves = findAllMoves(pieceIds);
 			controllingList = genControllingList(pieceIds, allMoves);
@@ -305,11 +309,16 @@ function findBestMoves(pieceIds, side, depth, maxDepth, a, b){
 			makeMove(pieceIds2, moveList[i], allMoves2, controllingList, lowestDepth);
 			if(!lowestDepth){
 				replies = findBestMoves(pieceIds2,-side, depth-1,maxDepth, -b, -a);
-				if(replies){
+				if(replies.length>0){
 					newScore = - replies[0];
 				}else{
 					if(detectCheck(pieceIds2, -side)){
 						newScore = winScore;
+						bestMoves[0] = newScore;
+						bestMoves[1] = moveList[i][0];
+						bestMoves[2] = moveList[i][1];
+						bestMoves[3] = moveList[i][2];
+						return bestMoves;
 					}else{
 						newScore = 0;
 					}				
@@ -320,22 +329,22 @@ function findBestMoves(pieceIds, side, depth, maxDepth, a, b){
 			if(newScore>bestScore){
 				bestScore = newScore;
 				bestMoves = [];
+				j=1;
 			}
 			if(newScore===bestScore){
-				bestMoves.push(moveList[i]);
+				bestMoves[j] = moveList[i][0];
+				bestMoves[j+1] = moveList[i][1];
+				bestMoves[j+2] = moveList[i][2];
+				j+=3;
 			}
 			if(bestScore>a){a = bestScore;}
-			if(bestScore===winScore){
-				bestMoves.unshift(bestScore); 
-				bestMoveTable[hash] = bestMoves;
-				return bestMoves;
-			}
-			if(a>b){bestMoves.unshift(bestScore); 
+			if(a>b){
+				bestMoves[0] = bestScore; 
 				bestMoveTable[hash] = bestMoves;
 				return bestMoves;
 			}				
 		}
-		bestMoves.unshift(bestScore);
+		bestMoves[0] = bestScore;
 		bestMoveTable[hash] = bestMoves;
 		return bestMoves;
 	}else{
