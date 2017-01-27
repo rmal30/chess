@@ -361,49 +361,6 @@ function findBestMoves(pieceIds, side, depth, maxDepth, a, b){
 	}
 		
 }
-function updateStatus(){
-	var scores = deepEvaluation(pieceIds);
-	var notationStr = "";
-	for(var i=0; i<gameNotation.length; i++){
-		notationStr+=(i+1)+". "+gameNotation[i][0]+" "+gameNotation[i][1]+" ";
-	}	
-	document.getElementById("history").innerHTML = notationStr;
-	document.getElementById("scores").innerHTML="White: "+scores[0]+", Black: "+scores[1];
-	if(detectCheck(pieceIds,1) || detectCheck(pieceIds, -1)){
-		if(scores[0]===0){
-			document.getElementById("status").innerHTML="Checkmate! Black wins!";
-		}else if(scores[1]===0){
-			document.getElementById("status").innerHTML="Checkmate! White wins!";
-		}else{
-			document.getElementById("status").innerHTML="Check!";
-		}
-	}else{
-		if(scores[0]===0 || scores[1]===0){
-			document.getElementById("status").innerHTML="Stalemate!";
-		}else{
-			document.getElementById("status").innerHTML="";
-		}
-	}
-}
-
-
-function highlightMoves(rays){
-	document.getElementById("moves").innerHTML="";
-	var moves;
-	for(var i=0; i<rays.length; i++){
-		moves = rays[i];
-		for(var j=0; j<moves.length;j++){
-			var left = (8+52*(moves[j]%8)).toString();
-			var top = (7*52 + 8-52*(moves[j]>>3)).toString();
-			document.getElementById("moves").innerHTML+='<div style="position:absolute; left:'+left+'px;top:'+top+'px; height:52px; width:52px; background-color: rgba(255, 255, 0, 0.2)"></div>';
-		}
-	}
-}
-function getCell(x, y){
-	var row = Math.ceil((-y+10)/52)+7;
-	var col = Math.floor((x-10)/52);
-	return col+row*8;
-}
 
 function makeMove(pieceIds, move, allMoves, controllingList, updateAllMoves){
 	var captureMade = false;
@@ -700,38 +657,6 @@ function applyMove(move){
 	setupBoard(pieceIds);
 	updateStatus();
 	doPlay();
-}
-
-function startMove(initPos, side){
-	if(side===currentSide && !pendingMove){
-		pendingMove = true;
-		document.getElementById("piece-"+initPos).style.WebkitFilter='drop-shadow(1px 1px 0 yellow) drop-shadow(-1px 1px 0 yellow) drop-shadow(1px -1px 0 yellow) drop-shadow(-1px -1px 0 yellow)';
-		var possibleRays = findValidPieceMoves(pieceIds, initPos, true);
-		highlightMoves(possibleRays);
-		document.addEventListener('mouseup', function fmove() {
-			var cell = getCell(event.clientX,event.clientY);
-			if(cell!==initPos){
-				var valid = false;
-				for(var i=0; i<possibleRays.length; i++){
-					for(var j=0; j<possibleRays[i].length; j++){
-						if(possibleRays[i][j]===cell){
-							valid = true;
-						}	
-					}
-				}
-				if(valid){
-					applyMove([pieceIds[initPos], initPos, cell]);
-				}else{
-					document.getElementById("piece-"+initPos).style.WebkitFilter='none';
-					
-					document.removeEventListener('mouseup', fmove);
-				}
-				document.getElementById("moves").innerHTML="";	
-			}
-			pendingMove=false;
-			document.removeEventListener('mouseup', fmove);
-		});
-	}
 }
 
 function validMove(pieceIds,move){
@@ -1137,4 +1062,79 @@ function addPiece(pieceId, position, piecesDOM){
 	var image = pieceTypes[Math.abs(pieceId)].toLowerCase()+color;
 	piecesDOM.innerHTML+='<img src="'+image+'.png" id="piece-'+position+'" style="position:absolute; left:'+left+'px;top:'+top+'px;'
 	+'" onclick="startMove('+position+','+Math.sign(pieceId)+')"></img>';
+}
+
+function updateStatus(){
+	var scores = deepEvaluation(pieceIds);
+	var notationStr = "";
+	for(var i=0; i<gameNotation.length; i++){
+		notationStr+=(i+1)+". "+gameNotation[i][0]+" "+gameNotation[i][1]+" ";
+	}	
+	document.getElementById("history").innerHTML = notationStr;
+	document.getElementById("scores").innerHTML="White: "+scores[0]+", Black: "+scores[1];
+	if(detectCheck(pieceIds,1) || detectCheck(pieceIds, -1)){
+		if(scores[0]===0){
+			document.getElementById("status").innerHTML="Checkmate! Black wins!";
+		}else if(scores[1]===0){
+			document.getElementById("status").innerHTML="Checkmate! White wins!";
+		}else{
+			document.getElementById("status").innerHTML="Check!";
+		}
+	}else{
+		if(scores[0]===0 || scores[1]===0){
+			document.getElementById("status").innerHTML="Stalemate!";
+		}else{
+			document.getElementById("status").innerHTML="";
+		}
+	}
+}
+
+
+function highlightMoves(rays){
+	document.getElementById("moves").innerHTML="";
+	var moves;
+	for(var i=0; i<rays.length; i++){
+		moves = rays[i];
+		for(var j=0; j<moves.length;j++){
+			var left = (8+52*(moves[j]%8)).toString();
+			var top = (7*52 + 8-52*(moves[j]>>3)).toString();
+			document.getElementById("moves").innerHTML+='<div style="position:absolute; left:'+left+'px;top:'+top+'px; height:52px; width:52px; background-color: rgba(255, 255, 0, 0.2)"></div>';
+		}
+	}
+}
+function getCell(x, y){
+	var row = Math.ceil((-y+10)/52)+7;
+	var col = Math.floor((x-10)/52);
+	return col+row*8;
+}
+function startMove(initPos, side){
+	if(side===currentSide && !pendingMove){
+		pendingMove = true;
+		document.getElementById("piece-"+initPos).style.WebkitFilter='drop-shadow(1px 1px 0 yellow) drop-shadow(-1px 1px 0 yellow) drop-shadow(1px -1px 0 yellow) drop-shadow(-1px -1px 0 yellow)';
+		var possibleRays = findValidPieceMoves(pieceIds, initPos, true);
+		highlightMoves(possibleRays);
+		document.addEventListener('mouseup', function fmove() {
+			var cell = getCell(event.clientX,event.clientY);
+			if(cell!==initPos){
+				var valid = false;
+				for(var i=0; i<possibleRays.length; i++){
+					for(var j=0; j<possibleRays[i].length; j++){
+						if(possibleRays[i][j]===cell){
+							valid = true;
+						}	
+					}
+				}
+				if(valid){
+					applyMove([pieceIds[initPos], initPos, cell]);
+				}else{
+					document.getElementById("piece-"+initPos).style.WebkitFilter='none';
+					
+					document.removeEventListener('mouseup', fmove);
+				}
+				document.getElementById("moves").innerHTML="";	
+			}
+			pendingMove=false;
+			document.removeEventListener('mouseup', fmove);
+		});
+	}
 }
