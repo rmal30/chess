@@ -50,49 +50,6 @@ function init(){
 	updateStatus();
 }
 
-function pieceToNum(type, side){
-	var typeNum;
-	switch(type){
-		case "P":typeNum = 1; break;
-		case "N": typeNum = 2; break;
-		case "B": typeNum = 3; break;
-		case "R": typeNum = 4; break;
-		case "Q": typeNum = 5; break;
-		case "K": typeNum = 6; break;
-	}
-	return typeNum*side;
-}
-function undo(){
-	document.getElementById("moves").innerHTML="";
-	if(game.length>1){
-		currentSide = -currentSide;
-		game.pop();
-		if(currentSide===1){
-			gameNotation.pop();
-		}else{
-			gameNotation[gameNotation.length-1][1] = "";
-		}
-		moveHistory.pop();
-		pieceIds = game[game.length-1].slice();
-		setupBoard(pieceIds);
-		updateStatus();
-	}
-}
-function play(){
-    var level = parseInt(document.getElementById("level").value);
-	bestMoves = findBestMoves(pieceIds, currentSide, level,level, -winScore, winScore);
-	if(bestMoves.length>2){
-		var randNum = Math.floor(((bestMoves.length-2)/3)*Math.random())*3+2;
-		var bestMove = [bestMoves[randNum], bestMoves[randNum+1], bestMoves[randNum+2]];
-		applyMove(bestMove);
-	}
-	updateStatus();
-	if(Object.keys(bestMoveTable).length>1000000){
-		bestMoveTable = {};
-	}
-	document.getElementById("pending").style.visibility = "hidden";
-}
-
 function findValidMoves(pieceIds, noCheckAllowed){
 	var validMoves = [];
 	for(var i=0; i<numSquares; i++){
@@ -115,21 +72,6 @@ function findAllMoves(pieceIds){
 		}
 	}
 	return allMoves;
-}
-
-function startGame(){
-    init();
-    doPlay();
-}
-
-function doPlay(){
-	var compPlayer= parseInt(document.getElementById("compPlayer").value);
-    if(compPlayer===currentSide || compPlayer===2){
-        document.getElementById("pending").style.visibility = "visible";
-        setTimeout(play, 200);
-    }else{
-        document.getElementById("pending").style.visibility = "hidden";
-    }
 }
 
 function groupPieceIdsByType(pieceIds){
@@ -256,7 +198,7 @@ function genControllingList(pieceIds, allMoves){
 		controllingPieces[i] = [];
 	}
 	for(var i=0; i<numSquares; i++){
-		if(pieceIds[i]!==0){
+		if(pieceIds[i]!==0 && Math.abs(pieceIds[i])>=3 && Math.abs(pieceIds[i])<=5){
 			for(var j=0; j<allMoves[i].length; j++){
 				controllingPieces[allMoves[i][j]].push(i);
 			}
@@ -415,8 +357,8 @@ function makeMove(pieceIds, move, allMoves, controllingList, updateAllMoves){
 		}
 	}
 	if(moveDest>>3===0 || moveDest>>3===7){
-		if(type===pieceToNum("P",1)){
-			pieceIds[moveDest] = pieceToNum("Q", side);
+		if(type===1){
+			pieceIds[moveDest] = 5*side;
 		}
 	}
 	
@@ -465,7 +407,6 @@ function undoMove(pieceIds, move, capture, allMoves,originalMoves, controllingLi
 	
 }
 
-
 function updateMoveTable(pieceIds, allMoves, controllingList, moveOrigin, moveDest, originalMoves){
 		allMoves[moveOrigin] = [];
 		var initPieces = controllingList[moveOrigin];
@@ -473,15 +414,16 @@ function updateMoveTable(pieceIds, allMoves, controllingList, moveOrigin, moveDe
 		for(var i=0; i<initPieces.length; i++){
 			initPiecePos = initPieces[i];
 			typeId = Math.abs(pieceIds[initPiecePos]);
-			if(typeId>=3 && typeId<=5){
+			if(typeId>=3 && typeId<=5 && initPiecePos!==moveDest){
 				allMoves[initPiecePos] = findAllPieceMoves(pieceIds, initPiecePos);
 			}
 		}
 		var finalPieces = controllingList[moveDest];
+		
 		for(var i=0; i<finalPieces.length; i++){
 			finalPiecePos = finalPieces[i];
 			typeId = Math.abs(pieceIds[finalPiecePos]);
-			if(typeId>=3 && typeId<=5){
+			if(typeId>=3 && typeId<=5 && finalPiecePos!==moveOrigin){
 				allMoves[finalPiecePos] = findAllPieceMoves(pieceIds, finalPiecePos);
 			}
 		}
@@ -1000,7 +942,7 @@ function findPieceId(pieceIds, pieceId){
 function detectCheck(pieceIds,side){
 	numCalls.check++;
 	var possibleThreats, numThreats;
-	var pos = findPieceId(pieceIds, pieceToNum("K", side));
+	var pos = findPieceId(pieceIds, 6*side);
 	if(pos === -1){
 		return true;
 	}
@@ -1063,7 +1005,6 @@ function addPiece(pieceId, position, piecesDOM){
 	piecesDOM.innerHTML+='<img src="'+image+'.png" id="piece-'+position+'" style="position:absolute; left:'+left+'px;top:'+top+'px;'
 	+'" onclick="startMove('+position+','+Math.sign(pieceId)+')"></img>';
 }
-
 function updateStatus(){
 	var scores = deepEvaluation(pieceIds);
 	var notationStr = "";
@@ -1088,8 +1029,6 @@ function updateStatus(){
 		}
 	}
 }
-
-
 function highlightMoves(rays){
 	document.getElementById("moves").innerHTML="";
 	var moves;
@@ -1137,4 +1076,49 @@ function startMove(initPos, side){
 			document.removeEventListener('mouseup', fmove);
 		});
 	}
+}
+function startGame(){
+    init();
+    doPlay();
+}
+
+function doPlay(){
+	var compPlayer= parseInt(document.getElementById("compPlayer").value);
+    if(compPlayer===currentSide || compPlayer===2){
+        document.getElementById("pending").style.visibility = "visible";
+        setTimeout(play, 200);
+    }else{
+        document.getElementById("pending").style.visibility = "hidden";
+    }
+}
+
+function undo(){
+	document.getElementById("moves").innerHTML="";
+	if(game.length>1){
+		currentSide = -currentSide;
+		game.pop();
+		if(currentSide===1){
+			gameNotation.pop();
+		}else{
+			gameNotation[gameNotation.length-1][1] = "";
+		}
+		moveHistory.pop();
+		pieceIds = game[game.length-1].slice();
+		setupBoard(pieceIds);
+		updateStatus();
+	}
+}
+function play(){
+    var level = parseInt(document.getElementById("level").value);
+	bestMoves = findBestMoves(pieceIds, currentSide, level,level, -winScore, winScore);
+	if(bestMoves.length>2){
+		var randNum = Math.floor(((bestMoves.length-2)/3)*Math.random())*3+2;
+		var bestMove = [bestMoves[randNum], bestMoves[randNum+1], bestMoves[randNum+2]];
+		applyMove(bestMove);
+	}
+	updateStatus();
+	if(Object.keys(bestMoveTable).length>1000000){
+		bestMoveTable = {};
+	}
+	document.getElementById("pending").style.visibility = "hidden";
 }
