@@ -243,7 +243,7 @@ function findBestMoves(pieceIds, side, depth, maxDepth, a, b){
 		var j=1;
 		var capturedPiece;
 		var originalMoves;
-		moveList = generateMoveList(pieceIds,side, !lowestDepth);
+		moveList = generateMoveList(pieceIds,side, depth>2);
 		if(moveList.length===0){
 			if(detectCheck(pieceIds, side)){
 				bestMoves[0] = depth;
@@ -631,7 +631,7 @@ function findValidKingMoves(pieceIds, position, noCheckAllowed){
 	var positions = [[],[]];
 	var pos = position;
 	var pieceId = pieceIds[position];
-	var side = Math.sign(pieceId);
+	var side = pieceId > 0 ? 1 : -1;
 	var options = kingPaths;
 	var p, possibleMove;
 	for(var i=0; i<8; i++){
@@ -765,7 +765,7 @@ function findValidPieceMoves(pieceIds, position, noCheckAllowed){
 	var positions = [[],[]];
 	var pieceId = pieceIds[position];
 	var typeId = Math.abs(pieceId);
-	var side = Math.sign(pieceId);
+	var side = pieceId > 0 ? 1 : -1;
 	var pieceType = typeId;
 	var vectors;
 	var numPaths = 4;
@@ -869,7 +869,7 @@ function evaluateBoard(pieceIds, allMoves){
 	var kingFreedomScore = [0,0];
 	var pieceId;
 	for(var i=0; i<numSquares; i++){
-		pieceId = pieceIds[i]; 
+		pieceId = pieceIds[i];
 		if(pieceId>0){
 			if(pieceId!== 6){
 				mobilityScore[0]+= allMoves[i].length;
@@ -881,6 +881,7 @@ function evaluateBoard(pieceIds, allMoves){
 			}
 			materialScore[1]+= pieceValues[-pieceId];
 		}
+		
 	}
 	if(materialScore[0] < endGameNum || materialScore[1] < endGameNum){
 		var validMoves = findValidMoves(pieceIds, false);
@@ -933,8 +934,14 @@ function deepEvaluation(pieceIds){
 }
 
 function findPieceId(pieceIds, pieceId){
-	for(var i=0; i<numSquares; i++){
-		if(pieceIds[i]===pieceId){return i;}
+	if(pieceId>0){
+		for(var i=0; i<numSquares; i++){
+			if(pieceIds[i]===pieceId){return i;}
+		}
+	}else{
+		for(var i=numSquares-1; i>=0; i--){
+			if(pieceIds[i]===pieceId){return i;}
+		}
 	}
 	return -1;
 }
@@ -966,12 +973,9 @@ function detectCheck(pieceIds,side){
 		numThreats = possibleThreats.length;
 		for(var i=0; i<numThreats; i++){
 			pieceId = pieceIds[possibleThreats[i]];
-			if(pieceId!==noPiece){
-				threatType = Math.abs(pieceId);
-				if(threatType===pieceType || (pieceType!==2 && threatType===5)){
-					pieceIds[pos] = 6*side;
-					return true;
-				}
+			if(pieceId === - j*side || (pieceId!==-2*side && pieceId===-5*side)){
+				pieceIds[pos] = 6*side;
+				return true;
 			}
 		}
 	}
