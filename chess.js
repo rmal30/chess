@@ -119,7 +119,7 @@ function evaluateScore(pieceIds, allMoves, side){
 }
 
 function generateAllMovesTable(){
-	var hash, vectors, numPaths, positions;
+	var hash, vectors, numPaths, positions, rayMoves;
 	for(var i=0; i<7; i++){
 		for(var j=0; j<numSquares; j++){
 			hash = i*numSquares+j;
@@ -139,12 +139,15 @@ function generateAllMovesTable(){
 			if(i>=3 && i<=5){
 				for(var k=0; k<numPaths; k++){
 					pos = j;
-					positions.push([]);
+					rayMoves = [];
 					while(pos!==-1){
 						pos = adjustPosition(pos, vectors[k]);
 						if(pos!==-1){
-							positions[k].push(pos);
+							rayMoves.push(pos);
 						}
+					}
+					if(rayMoves.length>0){
+						positions.push(rayMoves);
 					}
 				}
 			}else{
@@ -169,24 +172,23 @@ function findAllPieceMoves(pieceIds, position){
 	}
 	var typeId = Math.abs(pieceId);
 	var hash = typeId*numSquares+pos;
-	var numMoves;
+	var numMoves, numPaths;
 	var positions;
 	var vectors, p, j;
 	var possibleMoves, possibleRays;
 	if(typeId>=3 && typeId<=5){
 		possibleRays = allPieceMoves[hash];
 		positions = [];
-		for(var i=0; i<possibleRays.length; i++){
+		numPaths = possibleRays.length;
+		for(var i=0; i<numPaths; i++){
 			possibleMoves = possibleRays[i];
 			numMoves = possibleMoves.length;
-			if(numMoves>0){
-				j=0;
-				p=noPiece;
-				while(p===noPiece && j<numMoves){		
-					p = pieceIds[possibleMoves[j]];
-					positions.push(possibleMoves[j]);
-					j++;
-				}
+			j=0;
+			p=noPiece;
+			while(p===noPiece && j<numMoves){		
+				p = pieceIds[possibleMoves[j]];
+				positions.push(possibleMoves[j]);
+				j++;
 			}
 		}
 		return positions;
@@ -271,27 +273,26 @@ function genControllingList(pieceIds, allMoves){
 
 function findBestMoves(pieceIds, allMoves, side, depth, maxDepth, a, b){
 	var lowestDepth = depth<=1;
-	var hash = side.toString()+pieceIds.toString();
+	var hash = side.toString()+pieceIds.toString()+a.toString()+b.toString();
 	if(bestMoveTable[hash]==null || bestMoveTable[hash][0]<depth){
 		var bestScore = -winScore;
 		var bestMoves = [];
-		var newScore,replies, controllingList, moveList;
-		var j;
-		var capturedPiece;
-		var originalMoves, numMoves, numOriginalMoves;
-		var move;
-		var allPieceIdMoves, allMoves;
-		var moveOrigin, moveDest;
+		bestMoves[0] = depth;
+		
+		var c=0;
+		var newScore,replies, controllingList, moveList, j, capturedPiece, numMoves, move;
+		var allPieceIdMoves, allMoves, moveOrigin, moveDest;
+
 		moveList = generateMoveList(pieceIds,side, depth>maxDepth-3);
 		
 		numMoves = moveList.length;
 		if(numMoves===0){
-			bestMoves[0] = depth;
 			if(detectCheck(pieceIds, side)){
 				bestMoves[1] = bestScore+maxDepth-depth-1;
 			}else{
 				bestMoves[1] = 0;
 			}
+			bestMoves.length = 2;
 			bestMoveTable[hash] = bestMoves;
 			return bestMoves;
 		}
@@ -313,23 +314,23 @@ function findBestMoves(pieceIds, allMoves, side, depth, maxDepth, a, b){
 
 			if(newScore>bestScore){
 				bestScore = newScore;
-				bestMoves = [];
-				bestMoves[2] = move;
-				j = 3;
-				if(bestScore>a){a = bestScore;}
-			}else if(newScore===bestScore){
-				bestMoves[j] = move;
-				j++;
+				c=2;
 			}
+			if(newScore===bestScore){
+				bestMoves[c] = move[0];
+				bestMoves[c+1] = moveOrigin;
+				bestMoves[c+2] = moveDest;
+				c+=3;
+			}
+			
+			if(bestScore>a){a = bestScore;}
+			
 			if(a>b){
-				bestMoves[0] = depth;
-				bestMoves[1] = bestScore; 
-				bestMoveTable[hash] = bestMoves;
-				return bestMoves;
+				break;
 			}
 		}
-		bestMoves[0] = depth;
 		bestMoves[1] = bestScore;
+		bestMoves.length = c;
 		bestMoveTable[hash] = bestMoves;
 		return bestMoves;
 	}else{
@@ -800,15 +801,10 @@ function findValidPieceMoves(pieceIds, position, noCheckAllowed){
 	var positions = [[],[]];
 	var pieceId = pieceIds[position];
 	var typeId = Math.abs(pieceId);
-	var side = pieceId > 0 ? 1 : -1;
-	var pieceType = typeId;
-	var numPaths = 4;
+	var numPaths;
 	var p, j;
 	var pos;
 	var possibleMoves, numMoves, possibleRays, possibleMove;
-	if(typeId===2 || typeId===5){ 
-		numPaths = 8;
-	}
 	
 	switch(typeId){
 		case 1: positions = findValidPawnMoves(pieceIds, position, noCheckAllowed); break;
@@ -816,41 +812,41 @@ function findValidPieceMoves(pieceIds, position, noCheckAllowed){
 		case 4:
 		case 5:
 			possibleRays = allPieceMoves[typeId*numSquares+position];
+			numPaths = possibleRays.length;
 			for(var i=0; i<numPaths; i++){
 				possibleMoves = possibleRays[i];
 				numMoves = possibleMoves.length;
-				if(numMoves>0){
-					j=0;
-					p=noPiece;
-					while(p===noPiece && j<numMoves){		
-						possibleMove = possibleMoves[j];
-						p = pieceIds[possibleMove];
-						if(p===noPiece){
-							if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){		
-								positions[0].push(possibleMove);					
-							}
-							
+				j=0;
+				p=noPiece;
+				while(p===noPiece && j<numMoves){		
+					possibleMove = possibleMoves[j];
+					p = pieceIds[possibleMove];
+					if(p===noPiece){
+						if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){		
+							positions[0].push(possibleMove);					
 						}
-						else if(p*side<0){
-							if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){
-								positions[1].push(possibleMove);
-							}
-						}	
-						j++;
+						
 					}
+					else if(p*pieceId<0){
+						if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){
+							positions[1].push(possibleMove);
+						}
+					}	
+					j++;
 				}
 			}
 			break;
 		case 2:
 			possibleMoves = allPieceMoves[2*numSquares+position];
-			for(var i=0; i<numPaths; i++){
+			numMoves = possibleMoves.length;
+			for(var i=0; i<numMoves; i++){
 				possibleMove = possibleMoves[i];
 				p = pieceIds[possibleMove];
 				if(p===noPiece){
 					if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){		
 						positions[0].push(possibleMove);					
 					}
-				}else if(p*side<0){
+				}else if(p*pieceId<0){
 					if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){
 						positions[1].push(possibleMove);
 					}
@@ -1005,7 +1001,7 @@ function detectCheck(pieceIds,side){
 		numThreats = possibleThreats.length;
 		for(var i=0; i<numThreats; i++){
 			pieceId = pieceIds[possibleThreats[i]];
-			if(pieceId === - j*side || (j!==-2*side && pieceId===-5*side)){
+			if(pieceId === - j*side || (j!==2 && pieceId===-5*side)){
 				pieceIds[pos] = 6*side;
 				return true;
 			}
@@ -1144,12 +1140,35 @@ function undo(){
 		updateStatus();
 	}
 }
+
+function MTD(pieceIds,guess, depth, maxDepth){
+	var lower = -winScore;
+	var upper = winScore; 
+	var mtdBestMoves;
+	while(lower<upper){
+		if(guess === lower){ beta = guess + 1;} else {beta = guess;}
+		mtdBestMoves = findBestMoves(pieceIds, findAllMoves(pieceIds), currentSide, depth, maxDepth,  beta - 1, beta);
+		guess = mtdBestMoves[1];
+		if(guess < beta){upper = guess;}else{lower = guess;}
+	}
+	return mtdBestMoves;
+}
+
 function play(){
     var level = parseInt(document.getElementById("level").value);
+	var beta;
+	var bestScore = 0;
+	/*
+	for(var i=1; i<=level; i++){
+		bestMoves = MTD(pieceIds, bestScore, i*2, level*2);
+		bestScore = bestMoves[1];
+		//console.log(bestScore);
+	}
+	*/
 	bestMoves = findBestMoves(pieceIds, findAllMoves(pieceIds),currentSide, level,level, -winScore, winScore);
 	if(bestMoves.length>2){
-		var randNum = Math.floor(((bestMoves.length-2))*Math.random())+2;
-		var bestMove = bestMoves[randNum];
+		var randNum = Math.floor(((bestMoves.length-2)/3)*Math.random())*3+2;
+		var bestMove = bestMoves.slice(randNum, randNum+3);
 		applyMove(bestMove);
 	}
 	updateStatus();
