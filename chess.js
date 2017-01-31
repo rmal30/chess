@@ -359,7 +359,7 @@ function findBestMoves(pieceIds, allMoves, side, depth, maxDepth, a, b){
 	return bestMoves;
 }
 
-function makeMove(pieceIds, move, allMoves, controllingList, updateAllMoves){
+function makeMove(pieceIds, move, allMoves, updateAllMoves){
 	var captureMade = false;
 	var id = move[0];
 	var side = Math.sign(id);
@@ -381,6 +381,7 @@ function makeMove(pieceIds, move, allMoves, controllingList, updateAllMoves){
 	pieceIds[moveDest] = id;
 	if(type===1 && !captureMade && (Math.abs(moveOrigin - moveDest)===7 || Math.abs(moveOrigin - moveDest)===9)){
 		var capturePos = ((moveOrigin>>3)<<3) + moveDest%8;
+		//console.log(capturePos, allMoves[capturePos]);
 		if(updateAllMoves){
 			capturedPiece = [capturePos, pieceIds[capturePos], allMoves[capturePos]];
 		}else{
@@ -427,6 +428,7 @@ function undoMove(pieceIds, move, capture, allMoves, updateAllMoves){
 	var moveDest = move[2];
 	pieceIds[moveDest] = noPiece;
 	if(capture){
+		//console.log(capture);
 		pieceIds[capture[0]] = capture[1];
 		if(updateAllMoves){
 			allMoves[capture[0]] = capture[2];
@@ -466,6 +468,7 @@ function updateMoveTable(pieceIds, allMoves, controllingList, moveOrigin, moveDe
 			typeId = Math.abs(pieceIds[initPiecePos]);
 			delta = Math.sign(file - initPiecePos&7)+ 8*Math.sign(rank - (initPiecePos>>3));
 			if(typeId>=3 && typeId<=5 && initPiecePos!==moveDest){		
+				
 				pos = moveOrigin;
 				p = noPiece;
 				while(pos!==-1 && p===noPiece){
@@ -475,6 +478,8 @@ function updateMoveTable(pieceIds, allMoves, controllingList, moveOrigin, moveDe
 						allMoves[initPiecePos].push(pos);
 					}
 				}
+				
+				//allMoves[initPiecePos] = findAllPieceMoves(pieceIds, initPiecePos);
 			}
 		}
 		var finalPieces = controllingList[moveDest];
@@ -616,7 +621,7 @@ function getNotation(pieceIds, move){
 		}
 		if(initPositions.length>0){
 			if(!sameFile){idLetters+=file[move[1]%8];}
-			else if(!sameRank){idLetters+=move[1]>>3+1;}
+			else if(!sameRank){idLetters+=(move[1]>>3)+1;}
 			else{
 				idLetters+=getPosFromId(move[1]);
 			}
@@ -630,7 +635,7 @@ function getNotation(pieceIds, move){
 		}
 	}
 	var pieceIds2 = pieceIds.slice();
-	makeMove(pieceIds2, move, findAllMoves(pieceIds2), genControllingList(pieceIds2, findAllMoves(pieceIds2)), false);
+	makeMove(pieceIds2, move, findAllMoves(pieceIds2), false);
 	if(detectCheck(pieceIds2, -side)){
 		if(deepEvaluation(pieceIds2)[0.5+0.5*side]===0){
 			check="#";
@@ -647,7 +652,7 @@ function applyMove(move){
 	}else{
 		gameNotation[gameNotation.length-1][1] = getNotation(pieceIds, move);
 	}
-	makeMove(pieceIds, move, findAllMoves(pieceIds), genControllingList(pieceIds, findAllMoves(pieceIds)), false);
+	makeMove(pieceIds, move, findAllMoves(pieceIds), false);
 	moveHistory.push(move);
 	currentSide = - currentSide;
 	game.push(pieceIds.slice());
@@ -1183,11 +1188,12 @@ function play(){
 		initLevel = 2;
 	}
 	
+	/*
 	for(var i=initLevel; i<=level; i+=2){
 		bestMoves = MTDf(pieceIds, bestScore, i, level);
 		bestScore = bestMoves[2];
 	}
-	
+	*/
 	//bestMoves = findBestMoves(pieceIds, findAllMoves(pieceIds),currentSide, level,level, -winScore, winScore);
 	if(bestMoves.length>3){
 		var randNum = Math.floor(((bestMoves.length-3)/3)*Math.random())*3+3;
