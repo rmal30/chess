@@ -279,9 +279,10 @@ function scoreMove(pieceIds, move, allMoves, controllingList, side, depth, maxDe
 	var moveOrigin = move[1];
 	var moveDest = move[2];
 	var destId = pieceIds[moveDest];
-	var capturedPiece = makeMove(pieceIds, move, allMoves, true);
+	var capturedPiece;
 	var pieceId;
 	var numMoves, controllingPieces;
+	capturedPiece = makeMove(pieceIds, move, allMoves);
 	updateMoveTable(pieceIds, allMoves, controllingList, moveOrigin, moveDest);
 	if(depth>0){
 		newScore = -findBestMove(pieceIds,allMoves, -side, depth,maxDepth, -b, -a)[2];
@@ -304,15 +305,16 @@ function scoreMove(pieceIds, move, allMoves, controllingList, side, depth, maxDe
 			newScore+= maxDepth - depth - 1;
 		} 
 	}
-	undoMove(pieceIds, move, capturedPiece, allMoves, true);
+	undoMove(pieceIds, move, capturedPiece, allMoves);
 	updateMoveTable(pieceIds, allMoves, controllingList, moveDest, moveOrigin);
 	return newScore;
 }
 
 function sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth, maxDepth, a, b){
-	var numMoves, move;
+	var numMoves;
 	var sortedMoves = [];
 	var scores = [];
+	var move;
 	var j;
 	numMoves = moveList.length;
 	for(var i=0; i<numMoves; i++){	
@@ -405,38 +407,34 @@ function findBestMove(pieceIds, allMoves, side, depth, maxDepth, a, b){
 	return bestMoves;
 }
 
-function makeMove(pieceIds, move, allMoves, updateAllMoves){
-	var captureMade = false;
+function makeMove(pieceIds, move, allMoves){
 	var id = move[0];
 	var type = Math.abs(id);
 	var moveOrigin = move[1];
 	var moveDest = move[2];
 	var delta = [];
+	var captureMade = pieceIds[moveDest]!==noPiece;
 	pieceIds[moveOrigin] = noPiece;
-	if(pieceIds[moveDest]!==noPiece){
-		captureMade = true;
-		if(updateAllMoves){
-			delta = [0, moveDest, pieceIds[moveDest], allMoves[moveDest]];
-		}else{
-			delta = [0, moveDest, pieceIds[moveDest]];
-		}
-		
+	if(captureMade){
+		delta = [0, moveDest, pieceIds[moveDest], allMoves[moveDest]];
 	}
 	pieceIds[moveDest] = id;
-	if(type===1 && !captureMade && (Math.abs(moveOrigin - moveDest)===7 || Math.abs(moveOrigin - moveDest)===9)){
-		var capturePos = ((moveOrigin>>3)<<3) + moveDest%8;
-		if(updateAllMoves){
-			delta = [0, capturePos, pieceIds[capturePos], allMoves[capturePos]];
-		}else{
-			delta = [0, capturePos, pieceIds[capturePos]];
+	if(type===1){
+		if(!captureMade){
+			var dPos = moveDest - moveOrigin;
+			if(dPos!==8*id && dPos!==16*id){
+				var capturePos = ((moveOrigin>>3)<<3) + moveDest&7;
+				delta = [0, capturePos, pieceIds[capturePos], allMoves[capturePos]];
+				pieceIds[capturePos] = noPiece;
+				allMoves[capturePos] = [];
+			}
 		}
-
-		pieceIds[capturePos] = noPiece;
-		if(updateAllMoves){
-			allMoves[capturePos] = [];
+		var rank = moveDest>>3;
+		if(rank===0 || rank===7){
+			pieceIds[moveDest] = 5*id;
 		}
 	}
-	if(type===4){
+	else if(type===4){
 		var side = Math.sign(id);
 		var rank = 28 - 28*side;
 		var castlingIndex = 65.5-1.5*side;
@@ -448,7 +446,7 @@ function makeMove(pieceIds, move, allMoves, updateAllMoves){
 			delta[0] = 1;
 		}
 	}
-	if(type===6){ 
+	else if(type===6){ 
 		var side = Math.sign(id);
 		var rank = 28 - 28*side;
 		var castlingIndex = 65.5-1.5*side;
@@ -462,31 +460,22 @@ function makeMove(pieceIds, move, allMoves, updateAllMoves){
 				pieceIds[rank] = noPiece;
 				pieceIds[3+rank] = 4*side;
 				pieceIds[castlingIndex+1] = 1;
-				if(updateAllMoves){
-					allMoves[rank] = [];
-					allMoves[3+rank] = findAllPieceMoves(pieceIds,3+rank);
-				}
+				allMoves[rank] = [];
+				allMoves[3+rank] = findAllPieceMoves(pieceIds,3+rank);
 			}	
 			if(moveDest===6+rank){
 				pieceIds[7+rank] = noPiece;
 				pieceIds[5+rank] = 4*side;
 				pieceIds[castlingIndex+2] = 1;
-				if(updateAllMoves){
-					allMoves[7+rank] = [];
-					allMoves[5+rank] = findAllPieceMoves(pieceIds,5+rank);
-				}
+				allMoves[7+rank] = [];
+				allMoves[5+rank] = findAllPieceMoves(pieceIds,5+rank);
 			}
-		}
-	}
-	if(type===1){
-		if(moveDest>>3===0 || moveDest>>3===7){
-			pieceIds[moveDest] = 5*id;
 		}
 	}
 	return delta;
 }
 
-function undoMove(pieceIds, move, capture, allMoves, updateAllMoves){
+function undoMove(pieceIds, move, capture, allMoves){
 	var id = move[0];
 	var side = Math.sign(id);
 	var type = Math.abs(id);
@@ -496,14 +485,11 @@ function undoMove(pieceIds, move, capture, allMoves, updateAllMoves){
 	if(capture && capture.length>1){
 		//console.log(capture);
 		pieceIds[capture[1]] = capture[2];
-		if(updateAllMoves){
-			allMoves[capture[1]] = capture[3];
-		}
+		allMoves[capture[1]] = capture[3];
 	}
-
+	var rank = 28 - 28*side;
 	if(type===4){
 		if(capture && capture[0]===1){
-			var rank = 28 - 28*side;
 			var castlingIndex  = 65.5-1.5*side;
 			if(moveOrigin ===rank){
 				pieceIds[castlingIndex+1] = 0;
@@ -514,7 +500,6 @@ function undoMove(pieceIds, move, capture, allMoves, updateAllMoves){
 	}
 
 	pieceIds[moveOrigin] = id;
-	var rank = 28 - 28*side;
 	if(type===6 && moveOrigin === 4 + rank){
 		var castlingIndex  = 65.5-1.5*side;
 		if(capture && capture[0]===1){
@@ -525,20 +510,16 @@ function undoMove(pieceIds, move, capture, allMoves, updateAllMoves){
 			pieceIds[castlingIndex+1] = 0;
 			pieceIds[rank] = 4*side;
 			pieceIds[3+rank] = noPiece;
-			if(updateAllMoves){
-				allMoves[rank] = findAllPieceMoves(pieceIds,rank);
-				allMoves[3+rank] = [];
-			}
+			allMoves[rank] = findAllPieceMoves(pieceIds,rank);
+			allMoves[3+rank] = [];
 		}	
 		if(moveDest===6+rank){
 			pieceIds[castlingIndex] = 0;
 			pieceIds[castlingIndex+2] = 0;
 			pieceIds[7+rank] =  4*side;
 			pieceIds[5+rank] = noPiece;
-			if(updateAllMoves){
-				allMoves[7+rank] = findAllPieceMoves(pieceIds,7+rank);
-				allMoves[5+rank] = [];
-			}
+			allMoves[7+rank] = findAllPieceMoves(pieceIds,7+rank);
+			allMoves[5+rank] = [];
 		}
 	}
 }
@@ -693,7 +674,7 @@ function getNotation(pieceIds, move){
 		}
 	}
 	var pieceIds2 = pieceIds.slice();
-	makeMove(pieceIds2, move, findAllMoves(pieceIds2), false);
+	makeMove(pieceIds2, move, findAllMoves(pieceIds2));
 	if(detectCheck(pieceIds2, -side)){
 		if(deepEvaluation(pieceIds2)[0.5+0.5*side]===0){
 			check="#";
@@ -710,7 +691,7 @@ function applyMove(move){
 	}else{
 		gameNotation[gameNotation.length-1][1] = getNotation(pieceIds, move);
 	}
-	makeMove(pieceIds, move, findAllMoves(pieceIds), false);
+	makeMove(pieceIds, move, findAllMoves(pieceIds));
 	moveHistory.push(move);
 	currentSide = - currentSide;
 	game.push(pieceIds.slice());
