@@ -267,12 +267,9 @@ function genControllingList(pieceIds, allMoves){
 		controllingPieces[i] = [];
 	}
 	for(var i=0; i<numSquares; i++){
-		typeId = Math.abs(pieceIds[i]);
-		if(typeId>=3 && typeId<=5){
-			numMoves = allMoves[i].length;
-			for(var j=0; j<numMoves; j++){
-				controllingPieces[allMoves[i][j]].push(i);
-			}
+		numMoves = allMoves[i].length;
+		for(var j=0; j<numMoves; j++){
+			controllingPieces[allMoves[i][j]].push(i);
 		}
 	}
 	return controllingPieces;
@@ -281,22 +278,37 @@ function genControllingList(pieceIds, allMoves){
 function scoreMove(pieceIds, move, allMoves, controllingList, side, depth, maxDepth, a, b){
 	var moveOrigin = move[1];
 	var moveDest = move[2];
+	var destId = pieceIds[moveDest];
 	var capturedPiece = makeMove(pieceIds, move, allMoves, true);
+	var pieceId;
+	var numMoves, controllingPieces;
 	updateMoveTable(pieceIds, allMoves, controllingList, moveOrigin, moveDest);
 	if(depth>0){
 		newScore = -findBestMove(pieceIds,allMoves, -side, depth,maxDepth, -b, -a)[2];
 	}else{
-		newScore = evaluateScore(pieceIds, allMoves, side);
+		pieceId = pieceIds[moveDest];
+		
+		controllingPieces = controllingList[moveDest];
+		numMoves = controllingPieces.length;
+		for(var i=0; i<numMoves; i++){
+			if(pieceIds[controllingPieces[i]]*side<0){
+				pieceIds[moveDest] = 0;
+				break;
+			}
+		}
+		newScore = evaluateScore(pieceIds, allMoves, side);	
+		pieceIds[moveDest] = pieceId;
+		if(newScore>0){
+			newScore-= maxDepth - depth - 1;
+		}else{
+			newScore+= maxDepth - depth - 1;
+		} 
 	}
-	if(newScore>0){
-		newScore-= maxDepth - depth;
-	}else{
-		newScore+= maxDepth - depth;
-	} 
 	undoMove(pieceIds, move, capturedPiece, allMoves, true);
 	updateMoveTable(pieceIds, allMoves, controllingList, moveDest, moveOrigin);
 	return newScore;
 }
+
 function sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth, maxDepth, a, b){
 	var numMoves, move;
 	var sortedMoves = [];
@@ -324,7 +336,7 @@ function findBestMove(pieceIds, allMoves, side, depth, maxDepth, a, b){
 	if(deep){
 		var hash = side.toString()+pieceIds.toString();
 		if(bestMoveTable[hash]!=null && bestMoveTable[hash][0]>=depth){
-			var entryMoves  = bestMoveTable[hash];
+			var entryMoves = bestMoveTable[hash];
 			var entryLimit = entryMoves[1];
 			if(entryLimit===0){
 				return entryMoves;
@@ -351,7 +363,7 @@ function findBestMove(pieceIds, allMoves, side, depth, maxDepth, a, b){
 	if(numMoves===0){ 
 		bestMoves[1] = 0;
 		if(detectCheck(pieceIds, side)){
-			bestMoves[2] = bestScore-depth+maxDepth;
+			bestMoves[2] = bestScore+maxDepth-depth-1;
 		}else{
 			bestMoves[2] = 0;
 		}
@@ -379,9 +391,10 @@ function findBestMove(pieceIds, allMoves, side, depth, maxDepth, a, b){
 	}
 	
 	bestMoves[2] = bestScore;
-	if(deep){
+	
+	if(deep){	
 		if(bestScore<=a_old){
-		bestMoves[1] = 1;
+			bestMoves[1] = 1;
 		}else if(bestScore>=b){
 			bestMoves[1] = -1;
 		}else{
@@ -542,7 +555,6 @@ function updateMoveTable(pieceIds, allMoves, controllingList, moveOrigin, moveDe
 			typeId = Math.abs(pieceIds[initPiecePos]);
 			delta = Math.sign(file - initPiecePos&7)+ 8*Math.sign(rank - (initPiecePos>>3));
 			if(typeId>=3 && typeId<=5 && initPiecePos!==moveDest){		
-				
 				pos = moveOrigin;
 				p = noPiece;
 				while(pos!==-1 && p===noPiece){
