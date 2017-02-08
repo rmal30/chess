@@ -19,9 +19,9 @@ var pieceValues = [0, 100, 300, 325, 500, 900, 3950];
 var winScore = 100000;
 var squaresWeight = 5;
 var bestMoves;
-var bestMoveTable = {};
+var randZTable = [];
+var bestMoveTable = new Array(Math.round(Math.pow(2, 25)));
 var allPieceMoves = [];
-var scoreTable = {};
 var numCalls = {eval:0, p:0, k:0, n:0, vMoves:0, check:0, umt:0, aMoves:0, mtdF:0};
 var currentSide, pendingMove;
 init();
@@ -51,6 +51,7 @@ function init(){
 	pieceIds[69] = 0;
 	game = [pieceIds.slice()];
 	generateAllMovesTable();
+	init_zobrist();
 	setupBoard(pieceIds);
 	updateStatus();
 
@@ -285,7 +286,7 @@ function scoreMove(pieceIds, move, allMoves, controllingList, side, depth, maxDe
 	capturedPiece = makeMove(pieceIds, move, allMoves);
 	updateMoveTable(pieceIds, allMoves, controllingList, moveOrigin, moveDest);
 	if(depth>0){
-		newScore = -findBestMove(pieceIds,allMoves, -side, depth,maxDepth, -b, -a)[2];
+		newScore = -findBestMove(pieceIds,undefined,allMoves, -side, depth,maxDepth, -b, -a)[2];
 	}else{
 		pieceId = pieceIds[moveDest];
 		
@@ -332,35 +333,78 @@ function sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth, m
 	return sortedMoves;
 }
 
-function findBestMove(pieceIds, allMoves, side, depth, maxDepth, a, b){
-	var a_old = a;
-	var deep = depth>1;
-	if(deep){
-		var hash = side.toString()+pieceIds.toString();
-		if(bestMoveTable[hash]!=null && bestMoveTable[hash][0]>=depth){
-			var entryMoves = bestMoveTable[hash];
-			var entryLimit = entryMoves[1];
-			if(entryLimit===0){
-				return entryMoves;
-			}else if(entryLimit===-1){
-				if(entryMoves[2]>a){
-					a = entryMoves[2];
-				}
-			}else if(entryLimit===1){
-				if(entryMoves[2]<b){
-					b = entryMoves[2];
-				}
+ function init_zobrist(){
+	 var maxInt = Math.pow(2, 25);
+	for(var i=0; i<70; i++){
+		randZTable.push([]);
+		if(i<numSquares){
+			for(var j=0; j<13; j++){
+				randZTable[i][j] = genRandomNum(maxInt);
 			}
-			if(a>=b){
-				return entryMoves;
+		}else{
+			randZTable.push(genRandomNum(maxInt));
+		}
+	} 
+ }
+
+function genRandomNum(n){
+	return Math.floor(Math.random()*n);
+}
+
+function hashPosition(side, pieceIds){
+	var hash = 1;
+	var pieceId;
+	for(var i=0; i<70; i++){
+		if(i<numSquares){
+			pieceId = pieceIds[i]; 
+			if(pieceId!==0){
+				hash^=randZTable[i][pieceId+6];
 			}
+		}else{
+			hash^=randZTable[i];
 		}
 	}
+	hash^=side+1;
+	return hash;
+}
+
+function findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b){
+	var a_old = a;
+	var deep = depth>1;
+	var hash = hashPosition(side, pieceIds);
 	var bestScore = -winScore;
 	var bestMoves = [];
+	var entryMoves = bestMoveTable[hash];
+	var readTable = entryMoves && entryMoves[0]>=depth;
+	if(readTable){
+		var entryLimit = entryMoves[1];
+		var entryScore = entryMoves[2];
+		if(entryLimit===0){
+			return entryMoves;
+		}else if(entryLimit===-1){
+			if(entryScore>a){
+				a = entryScore;
+			}
+		}else if(entryLimit===1){
+			if(entryMoves[2]<b){
+				b = entryScore;
+			}
+		}
+		if(a>=b){
+			return entryMoves;
+		}
+	}
 	bestMoves[0] = depth;
-	var newScore,controllingList, moveList, numMoves, move;
-	moveList = generateMoveList(pieceIds,side, depth>maxDepth-2);	
+	var newScore,controllingList, numMoves, move;
+	controllingList = genControllingList(pieceIds, allMoves);
+	if(!moveList){
+		moveList = generateMoveList(pieceIds,side, depth>maxDepth-2);
+		if(deep){
+			moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth>>1, maxDepth, a, b);
+			moveList = moveList.slice(0, 14);
+		}
+	}
+		
 	numMoves = moveList.length;
 	if(numMoves===0){ 
 		bestMoves[1] = 0;
@@ -371,10 +415,6 @@ function findBestMove(pieceIds, allMoves, side, depth, maxDepth, a, b){
 		}
 		bestMoveTable[hash] = bestMoves;
 		return bestMoves;
-	}
-	controllingList = genControllingList(pieceIds, allMoves);
-	if(deep){
-		moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth>>1, maxDepth, a, b);
 	}
 	
 	for(var i=0; i<numMoves; i++){
@@ -393,15 +433,15 @@ function findBestMove(pieceIds, allMoves, side, depth, maxDepth, a, b){
 	}
 	
 	bestMoves[2] = bestScore;
-	
-	if(deep){	
-		if(bestScore<=a_old){
-			bestMoves[1] = 1;
-		}else if(bestScore>=b){
-			bestMoves[1] = -1;
-		}else{
-			bestMoves[1] = 0;
-		}
+	if(bestScore<=a_old){
+		bestMoves[1] = 1;
+	}else if(bestScore>=b){
+		bestMoves[1] = -1;
+	}else{
+		bestMoves[1] = 0;
+	}
+
+	if(!readTable){	
 		bestMoveTable[hash] = bestMoves;
 	}
 	return bestMoves;
@@ -449,9 +489,10 @@ function makeMove(pieceIds, move, allMoves){
 	else if(type===6){ 
 		var side = Math.sign(id);
 		var rank = 28 - 28*side;
-		var castlingIndex = 65.5-1.5*side;
+		
 		
 		if(moveOrigin === 4 + rank){
+			var castlingIndex = 65.5-1.5*side;
 			if(pieceIds[castlingIndex] === 0){
 				pieceIds[castlingIndex] = 1;
 				delta[0] = 1;
@@ -483,7 +524,6 @@ function undoMove(pieceIds, move, capture, allMoves){
 	var moveDest = move[2];
 	pieceIds[moveDest] = noPiece;
 	if(capture && capture.length>1){
-		//console.log(capture);
 		pieceIds[capture[1]] = capture[2];
 		allMoves[capture[1]] = capture[3];
 	}
@@ -1206,45 +1246,53 @@ function undo(){
 	}
 }
 
-function MTDf(pieceIds,guess, depth, maxDepth){
-	//numCalls.mtdF++;
+function MTDf(pieceIds,moveList, guess, depth, maxDepth){
+//	numCalls.mtdF++;
 	var lower = -winScore;
 	var upper = winScore; 
 	var mtdBestMoves;
+	var allMoves = findAllMoves(pieceIds);
 	while(lower<upper){
-		if(guess === lower){ beta = guess + 1;} else {beta = guess;}
-		mtdBestMoves = findBestMove(pieceIds, findAllMoves(pieceIds), currentSide, depth, maxDepth,  beta - 1, beta);
+		if(guess > lower+1){ beta = guess;} else {beta = lower+1;}
+		mtdBestMoves = findBestMove(pieceIds, moveList, allMoves, currentSide, depth, maxDepth,  beta - 5, beta);
 		//numCalls.mtdF++;
 		guess = mtdBestMoves[2];
 		if(guess<beta){upper = guess;}else{lower = guess;}
 	}
 	return mtdBestMoves;
 }
+ 
 
 function play(){
     var level = parseInt(document.getElementById("level").value);
 	//var beta;
-	//var bestScore = 0;
-	/*
+	var bestScore = 0;
+	var moveList, allMoves, controllingList;
 	var initLevel = 1;
 	if(level%2===0){
 		initLevel = 2;
 	}
-	for(var i=initLevel; i<=level; i+=2){
-		bestMoves = MTDf(pieceIds, bestScore, i, level);
-		bestScore = bestMoves[2];
-	}
-	*/
+	moveList = generateMoveList(pieceIds, currentSide, true);
+	allMoves = findAllMoves(pieceIds);
+	controllingList = genControllingList(pieceIds, allMoves);
 	
-	bestMove = findBestMove(pieceIds, findAllMoves(pieceIds),currentSide, level,level, -winScore, winScore);
+	
+	for(var i=initLevel; i<=level; i+=2){
+		bestMove = MTDf(pieceIds,moveList, bestScore, i, level);
+		bestScore = bestMove[2];
+		if(i<level){
+			moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, currentSide, i, level, -winScore, winScore);		
+			moveList = moveList.slice(0, 9);
+		}
+	}
+	
+	//bestMove = BNS(pieceIds, moveList, level, level, -winScore, winScore);
+	
+	//bestMove = findBestMove(pieceIds, undefined, allMoves,currentSide, level,level, -winScore, winScore);
 	if(bestMove.length>3){
 		//var randNum = Math.floor(((bestMove.length-3)/3)*Math.random())*3+3;
-		//var bestMove = bestMove.slice(3, 6);
-		applyMove(bestMove.slice(3, 6));
+		applyMove(bestMove.slice(3,6));
 	}
 	updateStatus();
-	if(Object.keys(bestMoveTable).length>1000000){
-		bestMoveTable = {};
-	}
 	document.getElementById("pending").style.visibility = "hidden";
 }
