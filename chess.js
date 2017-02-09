@@ -401,7 +401,7 @@ function findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b)
 		moveList = generateMoveList(pieceIds,side, depth>maxDepth-2);
 		if(deep){
 			moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth>>1, maxDepth, a, b);
-			moveList = moveList.slice(0, 14);
+			//moveList = moveList.slice(0, 14);
 		}
 	}
 		
@@ -1276,14 +1276,16 @@ function play(){
 	allMoves = findAllMoves(pieceIds);
 	controllingList = genControllingList(pieceIds, allMoves);
 	
-	
+	moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, currentSide, level-2, level, -winScore, winScore);	
 	for(var i=initLevel; i<=level; i+=2){
 		bestMove = MTDf(pieceIds,moveList, bestScore, i, level);
 		bestScore = bestMove[2];
+		/*
 		if(i<level){
 			moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, currentSide, i, level, -winScore, winScore);		
-			moveList = moveList.slice(0, 9);
+			//moveList = moveList.slice(0, 9);
 		}
+		*/
 	}
 	
 	//bestMove = BNS(pieceIds, moveList, level, level, -winScore, winScore);
