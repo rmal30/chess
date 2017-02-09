@@ -440,9 +440,9 @@ function findBestMoves(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b
 	}
 	
 	bestMoves[2] = bestScore;
-	if(bestScore<=a_old){
+	if(bestScore<a_old){
 		bestMoves[1] = 1;
-	}else if(bestScore>=b){
+	}else if(bestScore>b){
 		bestMoves[1] = -1;
 	}else{
 		bestMoves[1] = 0;
