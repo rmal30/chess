@@ -286,7 +286,7 @@ function scoreMove(pieceIds, move, allMoves, controllingList, side, depth, maxDe
 	capturedPiece = makeMove(pieceIds, move, allMoves);
 	updateMoveTable(pieceIds, allMoves, controllingList, moveOrigin, moveDest);
 	if(depth>0){
-		newScore = -findBestMove(pieceIds,undefined,allMoves, -side, depth,maxDepth, -b, -a)[2];
+		newScore = -findBestMoves(pieceIds,undefined,allMoves, -side, depth,maxDepth, -b, -a)[2];
 	}else{
 		pieceId = pieceIds[moveDest];
 		
@@ -368,12 +368,13 @@ function hashPosition(side, pieceIds){
 	return hash;
 }
 
-function findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b){
+function findBestMoves(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b){
 	var a_old = a;
 	var deep = depth>1;
 	var hash = hashPosition(side, pieceIds);
 	var bestScore = -winScore;
 	var bestMoves = [];
+	var c;
 	var entryMoves = bestMoveTable[hash];
 	var readTable = entryMoves && entryMoves[0]>=depth;
 	if(readTable){
@@ -390,7 +391,7 @@ function findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b)
 				b = entryScore;
 			}
 		}
-		if(a>=b){
+		if(a>b){
 			return entryMoves;
 		}
 	}
@@ -426,8 +427,14 @@ function findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b)
 			bestMoves[4] = move[1];
 			bestMoves[5] = move[2];
 			if(bestScore>a){a = bestScore;}
+			c = 6;
+		}else if(newScore===bestScore){
+			bestMoves[c] = move[0];
+			bestMoves[c+1] = move[1];
+			bestMoves[c+2] = move[2];
+			c+=3;
 		}
-		if(a>=b){
+		if(a>b){
 			break;
 		}
 	}
@@ -1254,7 +1261,7 @@ function MTDf(pieceIds,moveList, guess, depth, maxDepth){
 	var allMoves = findAllMoves(pieceIds);
 	while(lower<upper){
 		if(guess > lower+1){ beta = guess;} else {beta = lower+1;}
-		mtdBestMoves = findBestMove(pieceIds, moveList, allMoves, currentSide, depth, maxDepth,  beta - 5, beta);
+		mtdBestMoves = findBestMoves(pieceIds, moveList, allMoves, currentSide, depth, maxDepth,  beta - 5, beta);
 		//numCalls.mtdF++;
 		guess = mtdBestMoves[2];
 		if(guess<beta){upper = guess;}else{lower = guess;}
@@ -1278,8 +1285,9 @@ function play(){
 	
 	moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, currentSide, level-2, level, -winScore, winScore);	
 	for(var i=initLevel; i<=level; i+=2){
-		bestMove = MTDf(pieceIds,moveList, bestScore, i, level);
-		bestScore = bestMove[2];
+		bestMoves = MTDf(pieceIds,moveList, bestScore, i, level);
+		bestScore = bestMoves[2];
+		//moveList.unshift(bestMove.slice(3, 6));
 		/*
 		if(i<level){
 			moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, currentSide, i, level, -winScore, winScore);		
@@ -1291,9 +1299,9 @@ function play(){
 	//bestMove = BNS(pieceIds, moveList, level, level, -winScore, winScore);
 	
 	//bestMove = findBestMove(pieceIds, undefined, allMoves,currentSide, level,level, -winScore, winScore);
-	if(bestMove.length>3){
-		//var randNum = Math.floor(((bestMove.length-3)/3)*Math.random())*3+3;
-		applyMove(bestMove.slice(3,6));
+	if(bestMoves.length>3){
+		var randNum = Math.floor(((bestMoves.length-3)/3)*Math.random())*3+3;
+		applyMove(bestMoves.slice(randNum,randNum+3));
 	}
 	updateStatus();
 	document.getElementById("pending").style.visibility = "hidden";
