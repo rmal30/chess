@@ -477,6 +477,7 @@ function findBestMove(pieceIds, moveList, allMoves, controllingList, side, depth
 	var nullBreak = false;
 	var numAllMoves = genNumAllMoves(allMoves);
 	bestMoves[0] = depth;
+	
 	if(depth>5){
 		var nullMoveScore = scorePosition(pieceIds, allMoves, numAllMoves, side, depth-4, maxDepth, b-1,b);
 		if(nullMoveScore>=b){
@@ -499,6 +500,10 @@ function findBestMove(pieceIds, moveList, allMoves, controllingList, side, depth
 			newScore = scoreMove(pieceIds, move, initScore,allMoves, numAllMoves, controllingList, side, depth-1, maxDepth, a, b);
 			if(newScore>bestScore){
 				bestScore = newScore;
+				bestMoves[3] = move[0];
+				bestMoves[4] = move[1];
+				bestMoves[5] = move[2];
+
 				if(bestScore>a){a = bestScore;}
 			}
 			if(a>=b){
@@ -1356,11 +1361,14 @@ function play(){
 		if(level>6){
 			moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, currentSide, level-2, level, -winScore, winScore);
 		}
+		/*
 		for(var i=initLevel; i<=level; i+=2){
 			bestMoves = MTDf(pieceIds,moveList, bestScore,currentSide, i, level);
 			bestScore = bestMoves[2];
 		}
-		bestMoves = findBestMoves(pieceIds, moveList, allMoves,controllingList, currentSide, level,level, bestScore-1, bestScore);
+		*/
+		bestMoves = findBestMove(pieceIds, moveList, allMoves,controllingList, currentSide, level,level, -winScore, winScore);
+		gameHashes.pop();
 		if(bestMoves.length>3){
 			var randNum = Math.floor(((bestMoves.length-3)/3)*Math.random())*3+3;
 			applyMove(bestMoves.slice(randNum,randNum+3));
