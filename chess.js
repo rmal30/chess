@@ -254,7 +254,7 @@ function findAllPieceMoves(pieceIds, position){
 }
 
 function generateMoveList(pieceIds, side, noCheckAllowed){
-	var moveList1 = [], moveList2 = [];
+	var moveList=[];
 	for(var i=0; i<numSquares; i++){
 		var pieceId = pieceIds[i]
 		if(pieceId*side>0){
@@ -263,14 +263,14 @@ function generateMoveList(pieceIds, side, noCheckAllowed){
 			var captures = options[1];
 			var numMoves = moves.length;
 			for(var j=0; j<captures.length; j++){
-				moveList1.push([pieceId, i, captures[j]]);
+				moveList.unshift([pieceId, i, captures[j]]);
 			}
 			for(var j=0; j<numMoves; j++){
-				moveList2.push([pieceId, i, moves[j]]);
+				moveList.push([pieceId, i, moves[j]]);
 			}
 		}
 	}	
-	return moveList1.concat(moveList2);
+	return moveList;
 }
 
 function genControllingList(pieceIds, allMoves){
@@ -298,12 +298,11 @@ function genNumAllMoves(allMoves){
 }
 
 
-function scorePosition(pieceIds,allMoves, numAllMoves, side, depth,maxDepth, a,b){
-	var moveList, controllingList, replies, numMoves;
+function scorePosition(pieceIds,allMoves, numAllMoves, gameHashes, side, depth,maxDepth, a,b){
 	if(depth>0){
-		moveList = generateMoveList(pieceIds,-side, depth>maxDepth-2);
-		numMoves = moveList.length;
-		if(numMoves>0){
+		var moveList = generateMoveList(pieceIds,-side, depth>maxDepth-3);
+		if(moveList.length>0){
+			
 			var hash = hashPosition(-side, pieceIds);
 			var count = 0;
 			var numHashes = gameHashes.length; 
@@ -315,12 +314,11 @@ function scorePosition(pieceIds,allMoves, numAllMoves, side, depth,maxDepth, a,b
 					}
 				}
 			}
-			controllingList = genControllingList(pieceIds, allMoves);
-			if(depth>1){	
-				moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, -side, depth>>1, maxDepth, -b, -a);
+			var controllingList = genControllingList(pieceIds, allMoves);
+			if(depth>2){	
+				sortMoves(pieceIds, moveList, allMoves, controllingList, -side, depth>>1, maxDepth, -b, -a);
 			}
-			replies = findBestMove(pieceIds,moveList,allMoves,controllingList, -side, depth, maxDepth, -b, -a);
-			gameHashes.pop();
+			var replies = findBestMove(pieceIds,moveList,allMoves,controllingList, -side, depth, maxDepth, -b, -a);
 			return -replies[2];
 		}else{
 			if(detectCheck(pieceIds, -side)){
@@ -382,7 +380,7 @@ function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingL
 	var originalMoves = copyArr(allMoves[moveOrigin]);
 	var capturedPiece = makeMove(pieceIds, move, allMoves, numAllMoves);
 	updateMoveTable(pieceIds, allMoves, numAllMoves, controllingList, moveOrigin, moveDest, undefined);
-	var newScore = scorePosition(pieceIds, allMoves,numAllMoves, side, depth, maxDepth, a, b);	
+	var newScore = scorePosition(pieceIds, allMoves,numAllMoves,gameHashes, side, depth, maxDepth, a, b);	
 	undoMove(pieceIds, move, capturedPiece, allMoves, numAllMoves);
 	updateMoveTable(pieceIds, allMoves, numAllMoves, controllingList, moveDest, moveOrigin, originalMoves);
 	return newScore;
@@ -390,7 +388,6 @@ function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingL
 
 function sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth, maxDepth, a, b){
 	var numMoves;
-	var sortedMoves = [];
 	var scores = [];
 	var move;
 	var j;
@@ -403,13 +400,12 @@ function sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth, m
 		j = i;
 		while(j >= 1 && scores[j-1] < newScore){
 			scores[j] = scores[j-1]
-			sortedMoves[j] = sortedMoves[j-1];	
+			moveList[j] = moveList[j-1];	
 			j--;
 		}	
 		scores[j] = newScore;
-		sortedMoves[j] = move;
+		moveList[j] = move;
 	}
-	return sortedMoves;
 }
 
  function init_zobrist(){
@@ -455,9 +451,7 @@ function findBestMove(pieceIds, moveList, allMoves, controllingList, side, depth
 	if(entryMoves && entryMoves[0]>=depth){
 		var entryLimit = entryMoves[1];
 		var entryScore = entryMoves[2];
-		if(entryLimit===0){
-			return entryMoves;
-		}else if(entryLimit===-1){
+		if(entryLimit===-1){
 			if(entryScore>=a){
 				a = entryScore;
 			}
@@ -466,7 +460,8 @@ function findBestMove(pieceIds, moveList, allMoves, controllingList, side, depth
 				b = entryScore;
 			}
 		}
-		if(a>=b){
+		if(entryLimit===0 || a>=b){
+			gameHashes.pop();
 			return entryMoves;
 		}
 	}
@@ -478,15 +473,14 @@ function findBestMove(pieceIds, moveList, allMoves, controllingList, side, depth
 	var nullBreak = false;
 	var numAllMoves = genNumAllMoves(allMoves);
 	bestMoves[0] = depth;
-	
-	if(depth>3){
-		var nullMoveScore = scorePosition(pieceIds, allMoves, numAllMoves, side, 2, maxDepth, b-1,b);
+	 
+	 if(depth>3){
+		var nullMoveScore = scorePosition(pieceIds, allMoves, numAllMoves, gameHashes, side, depth - 3 - (depth&1), maxDepth, b-1,b);
+		//var nullMoveScore = scorePosition(pieceIds, allMoves, numAllMoves, gameHashes, side, 1, maxDepth, b-1,b);
 		if(nullMoveScore>=b){
-			depth-=2;
+			depth=2;
 		}
 	}
-	
-	
 	var initScore = evaluateScore(pieceIds, allMoves, numAllMoves, side);
 	numMoves = moveList.length;
 	for(var i=0; i<numMoves; i++){
@@ -497,7 +491,6 @@ function findBestMove(pieceIds, moveList, allMoves, controllingList, side, depth
 			bestMoves[3] = move[0];
 			bestMoves[4] = move[1];
 			bestMoves[5] = move[2];
-
 			if(bestScore>a){a = bestScore;}
 		}
 		if(a>=b){
@@ -515,6 +508,7 @@ function findBestMove(pieceIds, moveList, allMoves, controllingList, side, depth
 	if(!entryMoves || depth>=entryMoves[0]){			
 		bestMoveTable[hash] = bestMoves;
 	}
+	gameHashes.pop();
 	return bestMoves;
 }
 
@@ -1342,7 +1336,6 @@ function MTDf(pieceIds,moveList, guess, side, depth, maxDepth){
 	while(lower<upper){
 		if(guess > lower+1){ beta = guess;} else {beta = lower+1;}
 		mtdBestMoves = findBestMove(pieceIds, moveList, allMoves,controllingList, side, depth, maxDepth,  beta - 1, beta);
-		gameHashes.pop();
 		guess = mtdBestMoves[2];
 		if(guess<beta){upper = guess;}else{lower = guess;}
 	}
@@ -1362,7 +1355,7 @@ function play(){
 		var bestScore = evaluateScore(pieceIds, allMoves, genNumAllMoves(allMoves), currentSide);
 		controllingList = genControllingList(pieceIds, allMoves);
 		if(level>6){
-			moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, currentSide, level-2, level, -winScore, winScore);
+			sortMoves(pieceIds, moveList, allMoves, controllingList, currentSide, level-2, level, -winScore, winScore);
 		}
 		
 		for(var i=initLevel; i<=level; i+=2){
@@ -1371,7 +1364,6 @@ function play(){
 		}
 		
 		bestMoves = findBestMove(pieceIds, moveList, allMoves,controllingList, currentSide, level,level, bestScore-1, bestScore);
-		gameHashes.pop();
 		if(bestMoves.length>3){
 			var randNum = Math.floor(((bestMoves.length-3)/3)*Math.random())*3+3;
 			applyMove(bestMoves.slice(randNum,randNum+3));
