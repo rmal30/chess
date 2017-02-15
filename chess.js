@@ -477,12 +477,12 @@ function findBestMove(pieceIds, moveList, allMoves, controllingList, side, depth
 	var nullBreak = false;
 	var numAllMoves = genNumAllMoves(allMoves);
 	bestMoves[0] = depth;
-	
+	/*
 	if(depth>5){
 		var nullMoveScore = scorePosition(pieceIds, allMoves, numAllMoves, side, depth-4, maxDepth, b-1,b);
 		if(nullMoveScore>=b){
 			gameHashes.pop();
-			return findBestMove(pieceIds, moveList, allMoves, numAllMoves, controllingList, side, depth-4, maxDepth, a, b);
+			return findBestMove(pieceIds, moveList, allMoves, numAllMoves, controllingList, side, depth-3, maxDepth, a, b);
 		}
 	}else if(depth>4){
 		var nullMoveScore = scorePosition(pieceIds, allMoves, numAllMoves, side, depth-3, maxDepth, b-1,b);
@@ -491,6 +491,7 @@ function findBestMove(pieceIds, moveList, allMoves, controllingList, side, depth
 			return findBestMove(pieceIds, moveList, allMoves, numAllMoves, controllingList, side, depth-3, maxDepth, a, b);
 		}
 	}
+	*/
 	
 	var initScore = evaluateScore(pieceIds, allMoves, numAllMoves, side);
 	if(!nullBreak){
@@ -1361,12 +1362,12 @@ function play(){
 		if(level>6){
 			moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, currentSide, level-2, level, -winScore, winScore);
 		}
-		/*
+		
 		for(var i=initLevel; i<=level; i+=2){
 			bestMoves = MTDf(pieceIds,moveList, bestScore,currentSide, i, level);
 			bestScore = bestMoves[2];
 		}
-		*/
+		
 		bestMoves = findBestMove(pieceIds, moveList, allMoves,controllingList, currentSide, level,level, -winScore, winScore);
 		gameHashes.pop();
 		if(bestMoves.length>3){
