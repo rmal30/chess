@@ -54,6 +54,7 @@ function init(){
 	pieceIds[68] = 0;
 	pieceIds[69] = 0;
 	game = [pieceIds.slice()];
+	bestMoveTable = new Array(Math.round(Math.pow(2, 25)));
 	gameHashes = [hashPosition(currentSide, pieceIds)];
 	generateAllMovesTable();
 	genPositionValues();
