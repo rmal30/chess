@@ -477,39 +477,30 @@ function findBestMove(pieceIds, moveList, allMoves, controllingList, side, depth
 	var nullBreak = false;
 	var numAllMoves = genNumAllMoves(allMoves);
 	bestMoves[0] = depth;
-	/*
-	if(depth>5){
-		var nullMoveScore = scorePosition(pieceIds, allMoves, numAllMoves, side, depth-4, maxDepth, b-1,b);
+	
+	if(depth>3){
+		var nullMoveScore = scorePosition(pieceIds, allMoves, numAllMoves, side, 2, maxDepth, b-1,b);
 		if(nullMoveScore>=b){
-			gameHashes.pop();
-			return findBestMove(pieceIds, moveList, allMoves, numAllMoves, controllingList, side, depth-3, maxDepth, a, b);
-		}
-	}else if(depth>4){
-		var nullMoveScore = scorePosition(pieceIds, allMoves, numAllMoves, side, depth-3, maxDepth, b-1,b);
-		if(nullMoveScore>=b){
-			gameHashes.pop();
-			return findBestMove(pieceIds, moveList, allMoves, numAllMoves, controllingList, side, depth-3, maxDepth, a, b);
+			depth-=2;
 		}
 	}
-	*/
+	
 	
 	var initScore = evaluateScore(pieceIds, allMoves, numAllMoves, side);
-	if(!nullBreak){
-		numMoves = moveList.length;
-		for(var i=0; i<numMoves; i++){
-			move = moveList[i];	
-			newScore = scoreMove(pieceIds, move, initScore,allMoves, numAllMoves, controllingList, side, depth-1, maxDepth, a, b);
-			if(newScore>bestScore){
-				bestScore = newScore;
-				bestMoves[3] = move[0];
-				bestMoves[4] = move[1];
-				bestMoves[5] = move[2];
+	numMoves = moveList.length;
+	for(var i=0; i<numMoves; i++){
+		move = moveList[i];	
+		newScore = scoreMove(pieceIds, move, initScore,allMoves, numAllMoves, controllingList, side, depth-1, maxDepth, a, b);
+		if(newScore>bestScore){
+			bestScore = newScore;
+			bestMoves[3] = move[0];
+			bestMoves[4] = move[1];
+			bestMoves[5] = move[2];
 
-				if(bestScore>a){a = bestScore;}
-			}
-			if(a>=b){
-				break;
-			}
+			if(bestScore>a){a = bestScore;}
+		}
+		if(a>=b){
+			break;
 		}
 	}
 	if(bestScore<=a_old){
@@ -843,13 +834,7 @@ function getNotation(pieceIds, move){
 			}
 		}
 	}
-	if(pieceType==="K" && move[1] % 8 === 4){
-		if(move[2]%8===6){
-			return "O-O";
-		}else if(move[2]%8===2){
-			return "O-O-O";
-		}
-	}
+	
 	var pieceIds2 = pieceIds.slice();
 	var allMoves = findAllMoves(pieceIds2);
 	makeMove(pieceIds2, move, allMoves, genNumAllMoves(allMoves));
@@ -858,6 +843,13 @@ function getNotation(pieceIds, move){
 			check="#";
 		}else{
 			check="+";
+		}
+	}
+	if(pieceType==="K" && move[1] % 8 === 4){
+		if(move[2]%8===6){
+			return "O-O"+check;
+		}else if(move[2]%8===2){
+			return "O-O-O"+check;
 		}
 	}
 	return idLetters+capture+getPosFromId(move[2])+promotion+check;
@@ -1069,8 +1061,7 @@ function findValidPieceMoves(pieceIds, position, noCheckAllowed){
 					if(p===noPiece){
 						if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){		
 							positions[0].push(possibleMove);					
-						}
-						
+						}				
 					}
 					else if(p*pieceId<0){
 						if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){
@@ -1359,16 +1350,18 @@ function play(){
 		allMoves = findAllMoves(pieceIds);
 		var bestScore = evaluateScore(pieceIds, allMoves, genNumAllMoves(allMoves), currentSide);
 		controllingList = genControllingList(pieceIds, allMoves);
+		
 		if(level>6){
-			moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, currentSide, level-2, level, -winScore, winScore);
+			moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, currentSide, level-3, level, -winScore, winScore);
 		}
+		
 		
 		for(var i=initLevel; i<=level; i+=2){
 			bestMoves = MTDf(pieceIds,moveList, bestScore,currentSide, i, level);
 			bestScore = bestMoves[2];
 		}
 		
-		bestMoves = findBestMove(pieceIds, moveList, allMoves,controllingList, currentSide, level,level, -winScore, winScore);
+		bestMoves = findBestMove(pieceIds, moveList, allMoves,controllingList, currentSide, level,level, bestScore-1, bestScore);
 		gameHashes.pop();
 		if(bestMoves.length>3){
 			var randNum = Math.floor(((bestMoves.length-3)/3)*Math.random())*3+3;
