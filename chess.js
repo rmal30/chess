@@ -1200,7 +1200,7 @@ function addPiece(pieceId, position, piecesDOM){
 		color = "w";	
 	}
 	var image = pieceTypes[Math.abs(pieceId)].toLowerCase()+color;
-	return '<img src="'+image+'.png" id="piece-'+position+'" style="position:absolute; left:'+left+'px;top:'+top+'px;'
+	return '<img src="images/'+image+'.png" id="piece-'+position+'" style="position:absolute; left:'+left+'px;top:'+top+'px;'
 	+'" onclick="startMove('+position+','+Math.sign(pieceId)+')"></img>';
 }
 function updateStatus(){
