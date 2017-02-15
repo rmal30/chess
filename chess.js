@@ -371,7 +371,7 @@ function guessMoveScore(pieceIds, move, initScore, controllingList, side){
 	return score;
 }
 function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingList, side, depth, maxDepth, a, b){
-	if(depth===0){
+	if(depth===0){	
 		var score = guessMoveScore(pieceIds, move, initScore, controllingList, side);
 		if(score!==initScore){
 			return score;			
@@ -691,9 +691,10 @@ function updateMoveTable(pieceIds, allMoves,numAllMoves, controllingList, moveOr
 		for(var i=0; i<numInitPieces; i++){
 			initPiecePos = initPieces[i];
 			typeId = Math.abs(pieceIds[initPiecePos]);
-			if(typeId>=3 && typeId<=5 && initPiecePos!==moveDest){		
+			if(typeId>=3 && typeId<=5 && initPiecePos!==moveDest){	
 				pos = moveOrigin;
-				delta = Math.sign(file - (initPiecePos&7))+ 8*Math.sign(rank - (initPiecePos>>3));	
+				delta = Math.sign(file - (initPiecePos&7))+ 8*Math.sign(rank - (initPiecePos>>3));		
+				/*
 				possibleRays = allPieceMoves[typeId*numSquares+initPiecePos];
 				numPaths = possibleRays.length;
 				k = (moveOrigin - initPiecePos)/delta;
@@ -711,8 +712,17 @@ function updateMoveTable(pieceIds, allMoves,numAllMoves, controllingList, moveOr
 						j=numPaths;
 					}
 				}
-				numAllMoves[initPiecePos] = allMoves[initPiecePos].length;
+				*/
+ 				p = noPiece;
+ 				while(pos!==-1 && p===noPiece){
+ 					pos = adjustPosition(pos, delta);		
+ 					if(pos!==-1){
+ 						p = pieceIds[pos];
+ 						allMoves[initPiecePos].push(pos);
+ 					}
+ 				}
 				//allMoves[initPiecePos] = findAllPieceMoves(pieceIds, initPiecePos);
+				numAllMoves[initPiecePos] = allMoves[initPiecePos].length;
 			}
 		}
 		for(var i=0; i<numFinalPieces; i++){
@@ -1351,11 +1361,9 @@ function play(){
 		allMoves = findAllMoves(pieceIds);
 		var bestScore = evaluateScore(pieceIds, allMoves, genNumAllMoves(allMoves), currentSide);
 		controllingList = genControllingList(pieceIds, allMoves);
-		
 		if(level>6){
-			moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, currentSide, level-3, level, -winScore, winScore);
+			moveList = sortMoves(pieceIds, moveList, allMoves, controllingList, currentSide, level-2, level, -winScore, winScore);
 		}
-		
 		
 		for(var i=initLevel; i<=level; i+=2){
 			bestMoves = MTDf(pieceIds,moveList, bestScore,currentSide, i, level);
