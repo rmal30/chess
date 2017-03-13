@@ -21,7 +21,7 @@ var bestMoves;
 var outcome;
 var randZTable = [];
 var gameHashes = [];
-var bestMoveTable = new Array(Math.round(Math.pow(2, 25)));
+var bestMoveTable = new Array(Math.round(Math.pow(2, 24)));
 //var sortedMovesTable = new Array(Math.round(Math.pow(2, 25)));
 var allPieceMoves = [];
 var numCalls = {eval:0, p:0, k:0, n:0, vMoves:0, check:0, umt:0, aMoves:0, mtdF:0};
@@ -54,10 +54,9 @@ function init(){
 	pieceIds[68] = 0;
 	pieceIds[69] = 0;
 	game = [pieceIds.slice()];
-	bestMoveTable = new Array(Math.round(Math.pow(2, 25)));
+	bestMoveTable = new Array(Math.round(Math.pow(2, 24)));
 	gameHashes = [hashPosition(currentSide, pieceIds)];
 	generateAllMovesTable();
-	genPositionValues();
 	setupBoard(pieceIds);
 	updateStatus();
 }
@@ -73,23 +72,6 @@ function findAllMoves(pieceIds){
 	}
 	return allMoves;
 }
-function genPositionValues(){
-	positionValues = [];
-	for(var i=0; i<numSquares; i++){
-		var file = i%8;
-		var rank = i>>3;
-		
-		if((file===3 || file===4) &&(rank===3 || rank===4)){
-			positionValues[i] = 1.05;
-		}else if((file>=2 && file<=5) && (rank>=2 && rank<=5)){
-			positionValues[i] = 1.02;
-		}else if((file>=1 && file<=6) && (rank>=1 && rank<=6)){
-			positionValues[i] = 0.98;
-		}else if((file>=0 && file<=7) && (rank>=0 && rank<=7)){
-			positionValues[i] = 0.95;
-		}
-	}
-}
 
 function groupPieceIdsByType(pieceIds){
 	var types = [[],[],[],[],[],[]];
@@ -101,14 +83,15 @@ function groupPieceIdsByType(pieceIds){
 	return types;
 }
 
-function sortArr(arr){
-	var arrLength = arr.length;
+function genControllingArr(pieceIds, controllingPieceIds){
+	var arrLength = controllingPieceIds.length;
 	var num, j;
+	var arr = new Array(arrLength);
 	for(var i=0; i<arrLength; i++){	
-		num = arr[i];
+		num = pieceIds[controllingPieceIds[i]];
 		j = i;
 		while(j >= 1 && Math.abs(arr[j-1]) > Math.abs(num)){
-			arr[j] = arr[j-1]
+			arr[j] = arr[j-1];
 			j--;
 		}	
 		arr[j] = num;
@@ -231,7 +214,7 @@ function findAllPieceMoves(pieceIds, position){
 	var positions;
 	var p, j;
 	var possibleMoves;
-	var pieceMoves = allPieceMoves[hash];
+	var pieceMoves = allPieceMoves[hash];	
 	if(typeId>=3 && typeId<=5){
 		positions = [];
 		numPaths = pieceMoves.length;
@@ -254,7 +237,7 @@ function findAllPieceMoves(pieceIds, position){
 }
 
 function generateMoveList(pieceIds, side, noCheckAllowed){
-	var moveList=[];
+	var moveList = [];
 	for(var i=0; i<numSquares; i++){
 		var pieceId = pieceIds[i]
 		if(pieceId*side>0){
@@ -288,6 +271,20 @@ function genControllingList(pieceIds, allMoves){
 	}
 	return controllingPieces;
 }
+function legalMoveExists(pieceIds, side){
+	var pieceMoves;
+	for(var i=0; i<numSquares; i++){
+		if(pieceIds[i]*side>0){
+			pieceMoves = findValidPieceMoves(pieceIds, i, true);
+			if(pieceMoves[0].length>0 || pieceMoves[1].length>0){
+				return true;
+			}
+		}
+		
+	}
+	return false;
+}
+
 
 function genNumAllMoves(allMoves){
 	var numAllMoves = [];
@@ -295,47 +292,6 @@ function genNumAllMoves(allMoves){
 		numAllMoves[i] = allMoves[i].length;
 	}
 	return numAllMoves;
-}
-
-
-function scorePosition(pieceIds,allMoves, numAllMoves, gameHashes, side, depth,maxDepth, a,b){
-	if(depth>0){
-		var moveList = generateMoveList(pieceIds,-side, depth>maxDepth-3);
-		if(moveList.length>0){
-			
-			var hash = hashPosition(-side, pieceIds);
-			var count = 0;
-			var numHashes = gameHashes.length; 
-			for(var i=0; i<numHashes; i++){
-				if(hash===gameHashes[i]){
-					count++;
-					if(count>=2){
-						return 0;
-					}
-				}
-			}
-			var controllingList = genControllingList(pieceIds, allMoves);
-			if(depth>2){	
-				sortMoves(pieceIds, moveList, allMoves, controllingList, -side, depth>>1, maxDepth, -b, -a);
-			}
-			var replies = findBestMove(pieceIds,moveList,allMoves,controllingList, -side, depth, maxDepth, -b, -a);
-			return -replies[2];
-		}else{
-			if(detectCheck(pieceIds, -side)){
-				return winScore-maxDepth+depth;
-			}else{
-				return 0;
-			}
-		}
-	}else{	
-		var newScore = evaluateScore(pieceIds, allMoves, numAllMoves, side);	
-		if(newScore>0){
-			newScore-=maxDepth-depth-1;
-		}else{
-			newScore+=maxDepth-depth-1;
-		}
-		return newScore;
-	}
 }
 
 function copyArr(arr){
@@ -347,8 +303,10 @@ function copyArr(arr){
 	return arr2;
 }
 function guessMoveScore(pieceIds, move, initScore, controllingList, side){
-	var moveDest = move[2];
 	var pieceId = move[0];
+	var moveOrigin = move[1];
+	var moveDest = move[2];
+	var originId = pieceId;
 	var score = initScore;
 	var destId = pieceIds[moveDest];
 	if(destId!==0){
@@ -366,23 +324,110 @@ function guessMoveScore(pieceIds, move, initScore, controllingList, side){
 			return score;
 		}
 	}
+	/*
+	var controllingPieces, delta;
+	var outcomes = [];
+	var bestReturn = 0;
+	pieceIds[moveDest] = pieceId;
+	pieceIds[moveOrigin] = 0;
+	for(var i=0; i<numSquares; i++){
+		qPieceId = pieceIds[i];
+		if(qPieceId!==0 && qPieceId*side>0){
+			controllingPieces = genControllingArr(pieceIds, controllingList[i]);
+			delta = qSearch(qPieceId, controllingPieces, -side);
+			if(delta>0){
+				outcomes.push(delta);
+			}
+		}
+	}
+	for(var i=0; i<outcomes.length; i++){
+		if(outcomes[i]>bestReturn){
+			bestReturn = outcomes[i];
+		}
+	}
+	pieceIds[moveDest] = destId;
+	pieceIds[moveOrigin] = originId;
+	score-=bestReturn;
+	*/
+	/*
+	if(score===initScore && destId!==0){
+		if(score>0){
+			score++;
+		}else{
+			score--;
+		}
+	}*/
 	return score;
 }
 function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingList, side, depth, maxDepth, a, b){
-	if(depth===0){	
-		var score = guessMoveScore(pieceIds, move, initScore, controllingList, side);
-		if(score!==initScore){
-			return score;			
+	var newScore, hash, numHashes, moveList, replies;
+	if(move){
+		var moveOrigin = move[1];
+		var moveDest = move[2];
+		if(depth===0){	
+			var score = guessMoveScore(pieceIds, move, initScore, controllingList, side);
+			if(score!==initScore){
+				return score;
+			}
+		}
+		var originalMoves = copyArr(allMoves[moveOrigin]);
+		var capturedPiece = makeMove(pieceIds, move, allMoves, numAllMoves);
+		updateMoveTable(pieceIds, allMoves, numAllMoves, controllingList, moveOrigin, moveDest, undefined);
+		/*
+		if(depth===0){
+			var pieceId, controllingPieces, numMoves;
+			pieceId = pieceIds[moveDest];
+			controllingPieces = controllingList[moveDest];
+			numMoves = controllingPieces.length;
+			for(var i=0; i<numMoves; i++){
+				if(pieceIds[controllingPieces[i]]*side<0){
+					pieceIds[moveDest] = 0;
+					break;
+				}
+			}
+		}
+		*/
+	}
+	if(depth===0){
+		newScore = evaluateScore(pieceIds, allMoves, numAllMoves, side);
+			
+		if(newScore>0){
+			newScore-= maxDepth - depth - 1;
+		}else{
+			newScore+= maxDepth - depth - 1;
+		}
+	}else{
+		if(legalMoveExists(pieceIds, -side)){
+			var draw = false;
+			hash = hashPosition(-side, pieceIds);
+			numHashes = gameHashes.length; 
+			for(var i=0; i<numHashes; i++){
+				if(hash===gameHashes[i]){
+					newScore = 0;
+					draw = true;
+					break;
+				}
+			}
+			if(!draw){
+				replies = findBestMove(pieceIds,undefined,allMoves, -side, depth, maxDepth, -b, -a);
+				newScore = -replies[2];
+			}
+		}else{
+			if(detectCheck(pieceIds, -side)){
+				newScore =  winScore-maxDepth+depth;
+			}else{
+				newScore = 0;
+			}
 		}
 	}
-	var moveOrigin = move[1];
-	var moveDest = move[2];
-	var originalMoves = copyArr(allMoves[moveOrigin]);
-	var capturedPiece = makeMove(pieceIds, move, allMoves, numAllMoves);
-	updateMoveTable(pieceIds, allMoves, numAllMoves, controllingList, moveOrigin, moveDest, undefined);
-	var newScore = scorePosition(pieceIds, allMoves,numAllMoves,gameHashes, side, depth, maxDepth, a, b);	
-	undoMove(pieceIds, move, capturedPiece, allMoves, numAllMoves);
-	updateMoveTable(pieceIds, allMoves, numAllMoves, controllingList, moveDest, moveOrigin, originalMoves);
+	if(move){
+		if(depth===0){
+			//pieceIds[moveDest] = pieceId;
+		}
+		//var newScore = scorePosition(pieceIds, allMoves,numAllMoves,gameHashes, side, depth, maxDepth, a, b);	
+		undoMove(pieceIds, move, capturedPiece, allMoves, numAllMoves);
+		updateMoveTable(pieceIds, allMoves, numAllMoves, controllingList, moveDest, moveOrigin, originalMoves);
+	}
 	return newScore;
 }
 
@@ -393,13 +438,13 @@ function sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth, m
 	var j;
 	numMoves = moveList.length;
 	var numAllMoves = genNumAllMoves(allMoves);
-	newScore = evaluateScore(pieceIds, allMoves,numAllMoves, side);
+	var newScore = evaluateScore(pieceIds, allMoves,numAllMoves, side);
 	for(var i=0; i<numMoves; i++){	
 		move = moveList[i];
 		newScore = scoreMove(pieceIds, move, newScore,allMoves, numAllMoves, controllingList, side, depth-1, maxDepth, a, b);
 		j = i;
 		while(j >= 1 && scores[j-1] < newScore){
-			scores[j] = scores[j-1]
+			scores[j] = scores[j-1];
 			moveList[j] = moveList[j-1];	
 			j--;
 		}	
@@ -409,7 +454,7 @@ function sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth, m
 }
 
  function init_zobrist(){
-	 var maxInt = Math.pow(2, 25);
+	 var maxInt = Math.pow(2, 24);
 	for(var i=0; i<70; i++){
 		randZTable.push([]);
 		if(i<numSquares){
@@ -443,45 +488,53 @@ function hashPosition(side, pieceIds){
 	return hash;
 }
 
-function findBestMove(pieceIds, moveList, allMoves, controllingList, side, depth, maxDepth, a, b){
+function findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b){
 	var a_old = a;
 	var hash = hashPosition(side, pieceIds);
-	gameHashes.push(hash);
 	var entryMoves = bestMoveTable[hash];
 	if(entryMoves && entryMoves[0]>=depth){
 		var entryLimit = entryMoves[1];
 		var entryScore = entryMoves[2];
+		if(entryLimit===0){
+			return entryMoves;
+		}
 		if(entryLimit===-1){
-			if(entryScore>=a){
+			if(entryScore>a){
 				a = entryScore;
 			}
 		}else if(entryLimit===1){
-			if(entryScore<=b){
+			if(entryScore<b){
 				b = entryScore;
 			}
 		}
-		if(entryLimit===0 || a>=b){
-			gameHashes.pop();
+		if(a>=b){
 			return entryMoves;
 		}
 	}
-	
+	gameHashes.push(hash);
 	var bestScore = -winScore;
 	var bestMoves = [];
-	var newScore, numMoves, move;
-	
-	var nullBreak = false;
+	var newScore,controllingList, numMoves, move;
+	//var nullBreak = false;
 	var numAllMoves = genNumAllMoves(allMoves);
 	bestMoves[0] = depth;
+	controllingList = genControllingList(pieceIds, allMoves);
+	if(!moveList){
+		moveList = generateMoveList(pieceIds,side, depth>maxDepth-2);
+		if(depth>1){	
+			sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth>>1, maxDepth, a, b);
+		}
+	}
+	
+	var initScore = evaluateScore(pieceIds, allMoves, numAllMoves, side);
 	 
 	 if(depth>3){
-		var nullMoveScore = scorePosition(pieceIds, allMoves, numAllMoves, gameHashes, side, depth - 3 - (depth&1), maxDepth, b-1,b);
+		var nullMoveScore = scoreMove(pieceIds, undefined, initScore,allMoves, numAllMoves, controllingList, side, depth - 3 - (depth&1), maxDepth, b-1, b);
 		//var nullMoveScore = scorePosition(pieceIds, allMoves, numAllMoves, gameHashes, side, 1, maxDepth, b-1,b);
 		if(nullMoveScore>=b){
 			depth=2;
 		}
 	}
-	var initScore = evaluateScore(pieceIds, allMoves, numAllMoves, side);
 	numMoves = moveList.length;
 	for(var i=0; i<numMoves; i++){
 		move = moveList[i];	
@@ -681,13 +734,13 @@ function updateMoveTable(pieceIds, allMoves,numAllMoves, controllingList, moveOr
 		var rank = moveOrigin>>3;
 		var numInitPieces = initPieces.length;
 		var numFinalPieces = finalPieces.length;
-		var possibleRays, numPaths, numMoves, possibleMoves;
+		//var possibleRays, numPaths, numMoves, possibleMoves;
 		for(var i=0; i<numInitPieces; i++){
 			initPiecePos = initPieces[i];
 			typeId = Math.abs(pieceIds[initPiecePos]);
 			if(typeId>=3 && typeId<=5 && initPiecePos!==moveDest){	
 				pos = moveOrigin;
-				delta = Math.sign(file - (initPiecePos&7))+ 8*Math.sign(rank - (initPiecePos>>3));		
+				delta = Math.sign(file - (initPiecePos&7))+ 8*Math.sign(rank - (initPiecePos>>3));
 				/*
 				possibleRays = allPieceMoves[typeId*numSquares+initPiecePos];
 				numPaths = possibleRays.length;
@@ -1115,7 +1168,6 @@ function adjustPosition(pos, delta){
 	return -1;
 }
 
-
 function kingFreedom(pieceIds, side, validMoves, position){
 	var kingSafetyTable = genKingSafetyTable(pieceIds, side, validMoves);
 	var count = 0;
@@ -1335,7 +1387,7 @@ function MTDf(pieceIds,moveList, guess, side, depth, maxDepth){
 	var controllingList = genControllingList(pieceIds, allMoves);
 	while(lower<upper){
 		if(guess > lower+1){ beta = guess;} else {beta = lower+1;}
-		mtdBestMoves = findBestMove(pieceIds, moveList, allMoves,controllingList, side, depth, maxDepth,  beta - 1, beta);
+		mtdBestMoves = findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth,  beta - 1, beta);
 		guess = mtdBestMoves[2];
 		if(guess<beta){upper = guess;}else{lower = guess;}
 	}
@@ -1357,13 +1409,15 @@ function play(){
 		if(level>6){
 			sortMoves(pieceIds, moveList, allMoves, controllingList, currentSide, level-2, level, -winScore, winScore);
 		}
-		
-		for(var i=initLevel; i<=level; i+=2){
-			bestMoves = MTDf(pieceIds,moveList, bestScore,currentSide, i, level);
-			bestScore = bestMoves[2];
+		if(level>2){
+			for(var i=initLevel; i<=level; i+=2){
+				bestMoves = MTDf(pieceIds,moveList, bestScore,currentSide, i, level);
+				bestScore = bestMoves[2];
+			}
+		}else{
+			bestMoves = findBestMove(pieceIds, moveList, allMoves, currentSide, level,level, -winScore, winScore);
 		}
 		
-		bestMoves = findBestMove(pieceIds, moveList, allMoves,controllingList, currentSide, level,level, bestScore-1, bestScore);
 		if(bestMoves.length>3){
 			var randNum = Math.floor(((bestMoves.length-3)/3)*Math.random())*3+3;
 			applyMove(bestMoves.slice(randNum,randNum+3));
@@ -1371,5 +1425,4 @@ function play(){
 		updateStatus();
 		document.getElementById("pending").style.visibility = "hidden";
 	}
-    
 }
