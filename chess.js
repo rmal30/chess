@@ -1405,7 +1405,7 @@ function play(){
 		moveList = generateMoveList(pieceIds, currentSide, true);
 		allMoves = findAllMoves(pieceIds);
 		var bestScore = evaluateScore(pieceIds, allMoves, genNumAllMoves(allMoves), currentSide);
-		controllingList = genControllingList(pieceIds, allMoves);
+		var controllingList = genControllingList(pieceIds, allMoves);
 		if(level>6){
 			sortMoves(pieceIds, moveList, allMoves, controllingList, currentSide, level-2, level, -winScore, winScore);
 		}
@@ -1417,7 +1417,7 @@ function play(){
 		}else{
 			bestMoves = findBestMove(pieceIds, moveList, allMoves, currentSide, level,level, -winScore, winScore);
 		}
-		
+		bestMoves = findBestMoves(pieceIds, moveList, allMoves, controllingList, currentSide, level,level, -winScore, winScore);
 		if(bestMoves.length>3){
 			var randNum = Math.floor(((bestMoves.length-3)/3)*Math.random())*3+3;
 			applyMove(bestMoves.slice(randNum,randNum+3));
