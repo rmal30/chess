@@ -20,8 +20,10 @@ var winScore = 100000;
 var bestMoves;
 var outcome;
 var randZTable = [];
+var sideSeed = [];
 var gameHashes = [];
-var bestMoveTable = new Array(Math.round(Math.pow(2, 24)));
+var maxInt = Math.round(Math.pow(2, 32));
+var bestMoveTable;
 //var sortedMovesTable = new Array(Math.round(Math.pow(2, 25)));
 var allPieceMoves = [];
 var numCalls = {eval:0, p:0, k:0, n:0, vMoves:0, check:0, umt:0, aMoves:0, mtdF:0};
@@ -54,7 +56,7 @@ function init(){
 	pieceIds[68] = 0;
 	pieceIds[69] = 0;
 	game = [pieceIds.slice()];
-	bestMoveTable = new Array(Math.round(Math.pow(2, 24)));
+	bestMoveTable = new Array(maxInt-1);
 	gameHashes = [hashPosition(currentSide, pieceIds)];
 	generateAllMovesTable();
 	setupBoard(pieceIds);
@@ -454,17 +456,32 @@ function sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth, m
 }
 
  function init_zobrist(){
-	 var maxInt = Math.pow(2, 24);
+	 var randNums = [];
+	 var randNum;
 	for(var i=0; i<70; i++){
 		randZTable.push([]);
 		if(i<numSquares){
 			for(var j=0; j<13; j++){
-				randZTable[i][j] = genRandomNum(maxInt);
+				randNum = genRandomNum(maxInt);
+				randZTable[i][j] = randNum;
 			}
 		}else{
-			randZTable.push(genRandomNum(maxInt));
+			randNum = genRandomNum(maxInt);
+			randZTable[i].push(randNum);
 		}
-	} 
+	}
+	randNum = genRandomNum(maxInt);
+	sideSeed[0] = randNum;
+	randNum = genRandomNum(maxInt);
+	sideSeed[1] = randNum;
+	/*
+	do{
+		randNum = genRandomNum(maxInt);
+	}while(randNums.indexOf(randNum)!==-1);
+	sideSeed[1][1] = randNum;
+	randNums.push(randNum);
+	console.log(randNums);
+	*/
  }
 
 function genRandomNum(n){
@@ -472,20 +489,28 @@ function genRandomNum(n){
 }
 
 function hashPosition(side, pieceIds){
-	var hash = 1;
+	var hash1 = 0;
+	//var hash2 = 0;
 	var pieceId;
 	for(var i=0; i<70; i++){
 		if(i<numSquares){
 			pieceId = pieceIds[i]; 
 			if(pieceId!==0){
-				hash^=randZTable[i][pieceId+6];
+				hash1^=randZTable[i][pieceId+6];
+				//hash2^=randZTable[i][pieceId+6][1];
 			}
 		}else{
-			hash^=randZTable[i];
+			if(pieceIds[i]>0){
+				hash1^=randZTable[i];
+				//hash2^=randZTable[i][1];
+			}	
 		}
 	}
-	hash^=side+1;
-	return hash;
+	hash1^=sideSeed[(side+1)>>1];
+	//hash2^=sideSeed[(side+1)>>1][1];
+	return hash1;
+	
+	//return pieceIds.toString()+"-"+side;
 }
 
 function findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b){
