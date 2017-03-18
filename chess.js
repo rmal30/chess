@@ -1417,7 +1417,7 @@ function play(){
 		}else{
 			bestMoves = findBestMove(pieceIds, moveList, allMoves, currentSide, level,level, -winScore, winScore);
 		}
-		bestMoves = findBestMoves(pieceIds, moveList, allMoves, controllingList, currentSide, level,level, -winScore, winScore);
+		//bestMoves = findBestMoves(pieceIds, moveList, allMoves, controllingList, currentSide, level,level, -winScore, winScore);
 		if(bestMoves.length>3){
 			var randNum = Math.floor(((bestMoves.length-3)/3)*Math.random())*3+3;
 			applyMove(bestMoves.slice(randNum,randNum+3));
