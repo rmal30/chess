@@ -7,32 +7,17 @@ var pieceTypes = ["-", "P", "N", "B", "R", "Q", "K"];
 var gameNotation;
 var noPiece = 0;
 var numSquares = 64;
-var rookPaths = [-8, -1, 1, 8];
-var bishopPaths = [-9, -7, 7, 9];
-var whitePawnPaths = [7, 9];
-var blackPawnPaths = [-7, -9];
-var queenPaths = [-9, -8, -7, -1, 1, 7, 8, 9];
-var kingPaths = [-9, -8, -7, -1, 1, 7, 8, 9];
-var knightPaths = [-17,-15,-10,-6, 6, 10, 15, 17];
 var pieceValues = [0, 100, 300, 325, 500, 900, 3950];
 var winScore = 100000;
 var bestMoves;
 var outcome;
-var randZTable = [];
-var sideSeed = [];
+var randZTable;
 var gameHashes = [];
 var maxInt = Math.round(Math.pow(2, 32));
 var bestMoveTable;
 var allPieceMoves = [];
 var numCalls = {eval:0, p:0, k:0, n:0, vMoves:0, check:0, umt:0, aMoves:0, mtdF:0};
 var currentSide, pendingMove;
-
-function findPieceId(pieceIds, pieceId){
-	for(var i=0; i<numSquares; i++){
-		if(pieceIds[i]===pieceId){return i;}
-	}
-	return -1;
-}
 
 function hashPosition(side, pieceIds){
 	var hash1 = 0;
@@ -49,65 +34,8 @@ function hashPosition(side, pieceIds){
 			}	
 		}
 	}
-	hash1^=sideSeed[(side+1)>>1];
+	hash1^=randZTable[70+(side+1)>>1];
 	return hash1;
-}
-
-function adjustPosition(pos, delta){
-	var file = (pos & 7)+((delta+20) & 7) - 4;
-	var finalNum; 
-	if(file<8 && file>=0){
-		finalNum = pos+delta;
-		if(finalNum<numSquares && finalNum>=0){
-			return finalNum;
-		}
-	}
-	return -1;
-}
-
-function generateAllMovesTable(){
-	var hash, vectors, numPaths, positions, rayMoves, pos;
-	for(var i=0; i<7; i++){
-		for(var j=0; j<numSquares; j++){
-			hash = i*numSquares+j;
-			positions = [];
-			numPaths = 4;
-			switch(i){
-				case 0: vectors = blackPawnPaths; numPaths = 2; break;
-				case 1: vectors = whitePawnPaths; numPaths = 2; break;
-				case 2: vectors = knightPaths; numPaths = 8; break;
-				case 3: vectors = bishopPaths; break;
-				case 4: vectors = rookPaths; break;
-				
-				case 5: 
-				case 6: 
-					vectors = queenPaths; numPaths = 8; break;
-			}
-			if(i>=3 && i<=5){
-				for(var k=0; k<numPaths; k++){
-					pos = j;
-					rayMoves = [];
-					while(pos!==-1){
-						pos = adjustPosition(pos, vectors[k]);
-						if(pos!==-1){
-							rayMoves.push(pos);
-						}
-					}
-					if(rayMoves.length>0){
-						positions.push(rayMoves);
-					}
-				}
-			}else{
-				for(var m=0; m<numPaths; m++){
-					pos = adjustPosition(j, vectors[m]);
-					if(pos!==-1){
-						positions.push(pos);
-					}
-				}
-			}
-			allPieceMoves[hash] = positions;
-		}
-	}
 }
 
 function detectCheck(pieceIds,side){
@@ -122,11 +50,9 @@ function detectCheck(pieceIds,side){
 	if((pRight!==-1 && pieceIds[pRight] === -side) || (pLeft!==-1 && pieceIds[pLeft] ===  -side)){
 		return true;
 	} 
-	var moves = kingPaths;
-	var possibleMove;
-	for(var i=0; i<8; i++){
-		possibleMove = adjustPosition(pos, moves[i]);
-		if(possibleMove!==-1 && pieceIds[possibleMove]===-6*side){
+	var moves = allPieceMoves[6*numSquares+pos];
+	for(var i=0; i<moves.length; i++){
+		if(pieceIds[moves[i]]===-6*side){
 			return true;
 		}
 	}
@@ -415,62 +341,10 @@ function init(){
 	future = [];
 	bestMoveTable = new Array(maxInt-1);
 	gameHashes = [hashPosition(currentSide, pieceIds)];
-	generateAllMovesTable();
+	allPieceMoves = generateAllMovesTable();
 	setupBoard(pieceIds);
 	updateStatus();
 }
-
-
-
-function groupPieceIdsByType(pieceIds){
-	var types = [[],[],[],[],[],[]];
-	for(var i=0; i<numSquares; i++){
-		if(pieceIds[i]!==0){
-			types[Math.abs(pieceIds[i]) - 1].push(i);
-		}
-	}
-	return types;
-}
-
-function genControllingArr(pieceIds, controllingPieceIds){
-	var arrLength = controllingPieceIds.length;
-	var num, j;
-	var arr = new Array(arrLength);
-	for(var i=0; i<arrLength; i++){	
-		num = pieceIds[controllingPieceIds[i]];
-		j = i;
-		while(j >= 1 && Math.abs(arr[j-1]) > Math.abs(num)){
-			arr[j] = arr[j-1];
-			j--;
-		}	
-		arr[j] = num;
-	}
-	return arr;
-}
-
-function qSearch(pieceId, controllingPieces, side){
-	var score = 0;
-	var numControllingPieces;
-	if(pieceId*side<0){
-		numControllingPieces = controllingPieces.length;
-		for(var i=0; i<numControllingPieces; i++){
-			if(controllingPieces[i]*pieceId<0){
-				score+=pieceValues[-pieceId*side];
-				pieceId = controllingPieces[i];
-				controllingPieces.splice(i, 1);
-				score-= qSearch(pieceId, controllingPieces, -side);
-				if(score>0){
-					return score;
-				}else{
-					return 0;
-				}
-			}
-		}
-	}
-	return 0;
-}
-
-
 
 function findAllPieceMoves(pieceIds, position){
 	numCalls.aMoves++;
@@ -522,33 +396,6 @@ function floodFill(kingSafetyTable, posId){
 			floodFill(kingSafetyTable, newPos);
 		}
 	}
-
-}
-
-function genKingSafetyTable(pieceIds, side, validMoves){
-	var checkTable = [];
-	for(var i=0; i<numSquares; i++){
-		if(pieceIds[i]*side<=0 || pieceIds[i] === 6*side){
-			checkTable[i] = 0;
-		}else{
-			checkTable[i] = -1;
-		}
-		if(pieceIds[i]*side<0){
-			if(pieceIds[i]!==-side){
-				for(var j=0; j<validMoves[i].length; j++){	
-					checkTable[validMoves[i][j]] = -1;			
-				}
-			}else{
-				if(i&7 < 7){
-					checkTable[i-8*side+1] = -1;
-				}
-				if(i&7 > 0){
-					checkTable[i-8*side-1] = -1;
-				}
-			}
-		}
-	}
-	return checkTable;
 }
 
 function kingFreedom(pieceIds, side, validMoves, position){
@@ -606,25 +453,6 @@ function findAllMoves(pieceIds){
 	return allMoves;
 }
 
-
-
-
-
-function genControllingList(pieceIds, allMoves){
-	var controllingPieces = [];
-	var numMoves, pieceMoves;
-	for(var i=0; i<numSquares; i++){
-		controllingPieces[i] = [];
-	}
-	for(var k=0; k<numSquares; k++){
-		pieceMoves = allMoves[k];
-		numMoves = pieceMoves.length;
-		for(var j=0; j<numMoves; j++){
-			controllingPieces[pieceMoves[j]].push(k);
-		}
-	}
-	return controllingPieces;
-}
 function legalMoveExists(pieceIds, side){
 	var pieceMoves;
 	for(var i=0; i<numSquares; i++){
@@ -640,44 +468,6 @@ function legalMoveExists(pieceIds, side){
 }
 
 
-function genNumAllMoves(allMoves){
-	var numAllMoves = [];
-	for(var i=0; i<numSquares; i++){
-		numAllMoves[i] = allMoves[i].length;
-	}
-	return numAllMoves;
-}
-
-function copyArr(arr){
-	var arr2 = [];
-	var arrLength = arr.length;
-	for(var i=0; i<arrLength; i++){
-		arr2.push(arr[i]);
-	}
-	return arr2;
-}
-function guessMoveScore(pieceIds, move, initScore, controllingList, side){
-	var pieceId = move[0];
-	var moveDest = move[2];
-	var score = initScore;
-	var destId = pieceIds[moveDest];
-	if(destId!==0){
-		score+=pieceValues[-destId*side];
-	}
-	if(pieceId===side && moveDest>>3 === 3.5+3.5*side){
-		score+= pieceValues[5]-pieceValues[1];
-		pieceId = 5*side;
-	}
-	var controllingPieces = controllingList[moveDest];
-	var numMoves = controllingPieces.length;
-	for(var i=0; i<numMoves; i++){
-		if(pieceIds[controllingPieces[i]]*side<0){
-			score-=pieceValues[pieceId*side];
-			return score;
-		}
-	}
-	return score;
-}
 function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingList, side, depth, maxDepth, a, b){
 	var newScore, hash, numHashes, replies;
 	var capturedPiece, moveDest, moveOrigin, originalMoves;
@@ -754,32 +544,6 @@ function sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth, m
 		moveList[j] = move;
 	}
 }
-
- function init_zobrist(){
-	 var randNum;
-	for(var i=0; i<70; i++){
-		randZTable.push([]);
-		if(i<numSquares){
-			for(var j=0; j<13; j++){
-				randNum = genRandomNum(maxInt);
-				randZTable[i][j] = randNum;
-			}
-		}else{
-			randNum = genRandomNum(maxInt);
-			randZTable[i].push(randNum);
-		}
-	}
-	randNum = genRandomNum(maxInt);
-	sideSeed[0] = randNum;
-	randNum = genRandomNum(maxInt);
-	sideSeed[1] = randNum;
- }
-
-function genRandomNum(n){
-	return Math.floor(Math.random()*n);
-}
-
-
 
 function findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b){
 	var a_old = a;
@@ -1059,10 +823,6 @@ function updateMoveTable(pieceIds, allMoves,numAllMoves, controllingList, moveOr
 		}		
 }
 
-
-
-
-
 function getNotation(pieceIds, move){
 	var promotion = "";
 	var finalPosId = pieceIds[move[2]];
@@ -1159,8 +919,6 @@ function applyMove(move){
 	doPlay();
 }
 
-
-
 function findValidKingMoves(pieceIds, position, noCheckAllowed){
 	numCalls.k++;
 	var positions = [[],[]];
@@ -1213,52 +971,12 @@ function findValidKingMoves(pieceIds, position, noCheckAllowed){
 	return positions;
 }
 
-
-
-
-
-
-function getPosFromId(id){
-	return file[id&7]+((id>>3)+1);
-}
-
-function addPiece(pieceId, position, piecesDOM){
-	var left = (12 + 52*(position%8)).toString();
-	var top = (7*52 + 12 - 52*(position>>3)).toString();
-	var color;
-	if(pieceId<0){
-		color = "b";
-	}else{
-		color = "w";	
-	}
-	var image = pieceTypes[Math.abs(pieceId)].toLowerCase()+color;
-	return '<img src="images/'+image+'.png" id="piece-'+position+'" style="position:absolute; left:'+left+'px;top:'+top+'px;'
-	+'" onclick="startMove('+position+','+Math.sign(pieceId)+')"></img>';
-}
-
-function highlightMoves(rays){
-	document.getElementById("moves").innerHTML="";
-	var moves;
-	for(var i=0; i<rays.length; i++){
-		moves = rays[i];
-		for(var j=0; j<moves.length;j++){
-			var left = (8+52*(moves[j]%8)).toString();
-			var top = (7*52 + 8-52*(moves[j]>>3)).toString();
-			document.getElementById("moves").innerHTML+='<div style="position:absolute; left:'+left+'px;top:'+top+'px; height:52px; width:52px; background-color: rgba(255, 255, 0, 0.2)"></div>';
-		}
-	}
-}
-function getCell(x, y){
-	var row = Math.ceil((-y+10)/52)+7;
-	var col = Math.floor((x-10)/52);
-	return col+row*8;
-}
 function startMove(initPos, side){
 	if(outcome===null && side===currentSide && !pendingMove){
 		pendingMove = true;
 		document.getElementById("piece-"+initPos).style.WebkitFilter='drop-shadow(1px 1px 0 yellow) drop-shadow(-1px 1px 0 yellow) drop-shadow(1px -1px 0 yellow) drop-shadow(-1px -1px 0 yellow)';
 		var possibleRays = findValidPieceMoves(pieceIds, initPos, true);
-		highlightMoves(possibleRays);
+		document.getElementById("moves").innerHTML = highlightMoves(possibleRays);
 		document.addEventListener('mouseup', function fmove() {
 			var cell = getCell(event.pageX,event.pageY);
 			if(cell!==initPos){
@@ -1338,7 +1056,6 @@ function redo(){
 	
 }
 
-
 function MTDf(pieceIds,moveList, guess, side, depth, maxDepth){
 	numCalls.mtdF++;
 	var lower = -winScore;
@@ -1384,5 +1101,5 @@ function play(){
 		document.getElementById("pending").style.visibility = "hidden";
 	}
 }
-init_zobrist();
+randZTable = init_zobrist(maxInt);
 init();
