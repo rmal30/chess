@@ -104,8 +104,8 @@ function generateAllMovesTable(){
 					}
 				}
 			}else{
-				for(var k=0; k<numPaths; k++){
-					pos = adjustPosition(j, vectors[k]);
+				for(var m=0; m<numPaths; m++){
+					pos = adjustPosition(j, vectors[m]);
 					if(pos!==-1){
 						positions.push(pos);
 					}
