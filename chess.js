@@ -27,6 +27,19 @@ var allPieceMoves = [];
 var numCalls = {eval:0, p:0, k:0, n:0, vMoves:0, check:0, umt:0, aMoves:0, mtdF:0};
 var currentSide, pendingMove;
 
+function findPieceId(pieceIds, pieceId){
+	if(pieceId>0){
+		for(var i=0; i<numSquares; i++){
+			if(pieceIds[i]===pieceId){return i;}
+		}
+	}else{
+		for(var i=numSquares-1; i>=0; i--){
+			if(pieceIds[i]===pieceId){return i;}
+		}
+	}
+	return -1;
+}
+
 function hashPosition(side, pieceIds){
 	var hash1 = 0;
 	var pieceId;
@@ -1207,18 +1220,7 @@ function findValidKingMoves(pieceIds, position, noCheckAllowed){
 }
 
 
-function findPieceId(pieceIds, pieceId){
-	if(pieceId>0){
-		for(var i=0; i<numSquares; i++){
-			if(pieceIds[i]===pieceId){return i;}
-		}
-	}else{
-		for(var i=numSquares-1; i>=0; i--){
-			if(pieceIds[i]===pieceId){return i;}
-		}
-	}
-	return -1;
-}
+
 
 
 
