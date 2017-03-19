@@ -117,7 +117,7 @@ function genControllingList(pieceIds, allMoves){
 	return controllingPieces;
 }
 
- function init_zobrist(maxInt){
+ function initZobrist(maxInt){
 	var randNum;
 	var sideSeed = [];
 	var randZTable = [];

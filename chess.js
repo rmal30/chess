@@ -116,7 +116,7 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
 			positions[1].push(rightCapturePos);	
 		}
 	}
-	if(pos>>3 == 3.5 + 0.5*side){
+	if(pos>>3 === 3.5 + 0.5*side){
 		var move = moveHistory[moveHistory.length-1];
 		if(move){
 			var moveDest = move[2];
@@ -1085,5 +1085,5 @@ function play(){
 		document.getElementById("pending").style.visibility = "hidden";
 	}
 }
-randZTable = init_zobrist(maxInt);
+randZTable = initZobrist(maxInt);
 init();
