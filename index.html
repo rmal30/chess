@@ -14,8 +14,10 @@
 
 		Level: <input id="level" type="number" min="1" max="10" value="5"/>
 		<div id="buttons" style="float:bottom">
-			<button onclick="undo()">Undo</button>
 			<button onclick="startGame()">New game</button>
+			<button onclick="undo()" id="undo">Undo</button>
+			<button onclick="redo()" id="redo">Redo</button>
+			
 			<span id="pending" style="visibility:hidden;">Thinking...</span>
 		</div>
 		<div id="scores"></div>
