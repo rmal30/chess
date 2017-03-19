@@ -270,3 +270,23 @@ function qSearch(pieceId, controllingPieces, side){
 	}
 	return 0;
 }
+
+function newGamePosition(){
+    var pieceIds = [];
+    for(var i=0; i<8; i++){
+		pieceIds[i] = order[i];
+		pieceIds[i+8] 	= 1;
+
+		pieceIds[i+16] 	= 0;
+		pieceIds[i+24] 	= 0;
+		pieceIds[i+32] 	= 0;
+		pieceIds[i+40] 	= 0;
+
+		pieceIds[i+48] 	= -1;
+		pieceIds[i+56] = -order[i];
+	}
+	for(var j=numSquares; j<70; j++){
+		pieceIds[j] = 0;
+	}
+    return pieceIds;
+}

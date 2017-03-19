@@ -315,28 +315,13 @@ function setupBoard(pieceIds){
 }
 
 function init(){
-	moveHistory=[];
+	moveHistory = [];
 	futureMoves = [];
 	gameNotation = [];
-	currentSide=1;
+	currentSide = 1;
 	outcome = null;
 	pendingMove = false;
-	pieceIds = [];
-	for(var i=0; i<8; i++){
-		pieceIds[i] = order[i];
-		pieceIds[i+8] 	= 1;
-
-		pieceIds[i+16] 	= 0;
-		pieceIds[i+24] 	= 0;
-		pieceIds[i+32] 	= 0;
-		pieceIds[i+40] 	= 0;
-
-		pieceIds[i+48] 	= -1;
-		pieceIds[i+56] = -order[i];
-	}
-	for(var j=numSquares; j<70; j++){
-		pieceIds[j] = 0;
-	}
+	pieceIds = newGamePosition();
 	game = [pieceIds.slice()];
 	future = [];
 	bestMoveTable = new Array(maxInt-1);
