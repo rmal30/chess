@@ -220,6 +220,47 @@ function findAllPieceMoves(pieceIds, position){
 		return pieceMoves;
 	}	
 }
+function floodFill(kingSafetyTable, posId){
+	if(kingSafetyTable[posId]===0){
+		kingSafetyTable[posId] = 1;
+	}
+	var options = allPieceMoves[6*numSquares+posId];
+	var newPos;
+
+	for(var i=0; i<options.length; i++){
+		newPos = options[i];
+		if(kingSafetyTable[newPos]===0){
+			floodFill(kingSafetyTable, newPos);
+		}
+	}
+
+}
+
+function genKingSafetyTable(pieceIds, side, validMoves){
+	var checkTable = [];
+	for(var i=0; i<numSquares; i++){
+		if(pieceIds[i]*side<=0 || pieceIds[i] === 6*side){
+			checkTable[i] = 0;
+		}else{
+			checkTable[i] = -1;
+		}
+		if(pieceIds[i]*side<0){
+			if(pieceIds[i]!==-side){
+				for(var j=0; j<validMoves[i].length; j++){	
+					checkTable[validMoves[i][j]] = -1;			
+				}
+			}else{
+				if(i&7 < 7){
+					checkTable[i-8*side+1] = -1;
+				}
+				if(i&7 > 0){
+					checkTable[i-8*side-1] = -1;
+				}
+			}
+		}
+	}
+	return checkTable;
+}
 
 function kingFreedom(pieceIds, side, validMoves, position){
 	var kingSafetyTable = genKingSafetyTable(pieceIds, side, validMoves);
@@ -746,47 +787,7 @@ function updateMoveTable(pieceIds, allMoves,numAllMoves, controllingList, moveOr
 }
 
 
-function floodFill(kingSafetyTable, posId){
-	if(kingSafetyTable[posId]===0){
-		kingSafetyTable[posId] = 1;
-	}
-	var options = allPieceMoves[6*numSquares+posId];
-	var newPos;
 
-	for(var i=0; i<options.length; i++){
-		newPos = options[i];
-		if(kingSafetyTable[newPos]===0){
-			floodFill(kingSafetyTable, newPos);
-		}
-	}
-
-}
-
-function genKingSafetyTable(pieceIds, side, validMoves){
-	var checkTable = [];
-	for(var i=0; i<numSquares; i++){
-		if(pieceIds[i]*side<=0 || pieceIds[i] === 6*side){
-			checkTable[i] = 0;
-		}else{
-			checkTable[i] = -1;
-		}
-		if(pieceIds[i]*side<0){
-			if(pieceIds[i]!==-side){
-				for(var j=0; j<validMoves[i].length; j++){	
-					checkTable[validMoves[i][j]] = -1;			
-				}
-			}else{
-				if(i&7 < 7){
-					checkTable[i-8*side+1] = -1;
-				}
-				if(i&7 > 0){
-					checkTable[i-8*side-1] = -1;
-				}
-			}
-		}
-	}
-	return checkTable;
-}
 
 
 function getNotation(pieceIds, move){
