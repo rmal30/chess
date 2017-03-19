@@ -26,8 +26,69 @@ var bestMoveTable;
 var allPieceMoves = [];
 var numCalls = {eval:0, p:0, k:0, n:0, vMoves:0, check:0, umt:0, aMoves:0, mtdF:0};
 var currentSide, pendingMove;
-init_zobrist();
-init();
+
+function hashPosition(side, pieceIds){
+	var hash1 = 0;
+	var pieceId;
+	for(var i=0; i<70; i++){
+		if(i<numSquares){
+			pieceId = pieceIds[i]; 
+			if(pieceId!==0){
+				hash1^=randZTable[i][pieceId+6];
+			}
+		}else{
+			if(pieceIds[i]>0){
+				hash1^=randZTable[i];
+			}	
+		}
+	}
+	hash1^=sideSeed[(side+1)>>1];
+	return hash1;
+}
+function generateAllMovesTable(){
+	var hash, vectors, numPaths, positions, rayMoves, pos;
+	for(var i=0; i<7; i++){
+		for(var j=0; j<numSquares; j++){
+			hash = i*numSquares+j;
+			positions = [];
+			numPaths = 4;
+			switch(i){
+				case 0: vectors = blackPawnPaths; numPaths = 2; break;
+				case 1: vectors = whitePawnPaths; numPaths = 2; break;
+				case 2: vectors = knightPaths; numPaths = 8; break;
+				case 3: vectors = bishopPaths; break;
+				case 4: vectors = rookPaths; break;
+				
+				case 5: 
+				case 6: 
+					vectors = queenPaths; numPaths = 8; break;
+			}
+			if(i>=3 && i<=5){
+				for(var k=0; k<numPaths; k++){
+					pos = j;
+					rayMoves = [];
+					while(pos!==-1){
+						pos = adjustPosition(pos, vectors[k]);
+						if(pos!==-1){
+							rayMoves.push(pos);
+						}
+					}
+					if(rayMoves.length>0){
+						positions.push(rayMoves);
+					}
+				}
+			}else{
+				for(var k=0; k<numPaths; k++){
+					pos = adjustPosition(j, vectors[k]);
+					if(pos!==-1){
+						positions.push(pos);
+					}
+				}
+			}
+			allPieceMoves[hash] = positions;
+		}
+	}
+}
 function init(){
 	moveHistory=[];
 	futureMoves = [];
@@ -60,13 +121,7 @@ function init(){
 	updateStatus();
 }
 
-function findAllMoves(pieceIds){
-	var allMoves = [];
-	for(var i=0; i<numSquares; i++){
-		allMoves.push(findAllPieceMoves(pieceIds,i));
-	}
-	return allMoves;
-}
+
 
 function groupPieceIdsByType(pieceIds){
 	var types = [[],[],[],[],[],[]];
@@ -115,84 +170,17 @@ function qSearch(pieceId, controllingPieces, side){
 	}
 	return 0;
 }
-function evaluateScore(pieceIds, allMoves, numAllMoves, side){
-		var score;
-		numCalls.eval++;
-		var mobilityScore = 0;
-		var materialScore = 0;
-		var kingFreedomScore = 0;
-		var pieceId;
-		var whitePieceCount = 0;
-		var blackPieceCount = 0;
-		for(var i=0; i<numSquares; i++){
-			pieceId = pieceIds[i];
-			if(pieceId>0){
-				whitePieceCount++;
-				if(pieceId!== 6){
-					mobilityScore+= numAllMoves[i];
-				}
-				materialScore+= pieceValues[pieceId];
-			}else if(pieceId<0){
-				blackPieceCount++;
-				if(pieceId!==-6){
-					mobilityScore-= numAllMoves[i];
-				}
-				materialScore-= pieceValues[-pieceId];
-			}
-		}
-		if(whitePieceCount<2){
-			kingFreedomScore+= kingFreedom(pieceIds, 1, allMoves, findPieceId(pieceIds, 6))-numSquares;
-		}
-		if(blackPieceCount<2){
-			kingFreedomScore-= kingFreedom(pieceIds, -1, allMoves, findPieceId(pieceIds, -6))-numSquares;
-		}	
-		score = mobilityScore*5+materialScore+kingFreedomScore*2;
-		return score*side;
-}
 
-function generateAllMovesTable(){
-	var hash, vectors, numPaths, positions, rayMoves, pos;
-	for(var i=0; i<7; i++){
-		for(var j=0; j<numSquares; j++){
-			hash = i*numSquares+j;
-			positions = [];
-			numPaths = 4;
-			switch(i){
-				case 0: vectors = blackPawnPaths; numPaths = 2; break;
-				case 1: vectors = whitePawnPaths; numPaths = 2; break;
-				case 2: vectors = knightPaths; numPaths = 8; break;
-				case 3: vectors = bishopPaths; break;
-				case 4: vectors = rookPaths; break;
-				
-				case 5: 
-				case 6: 
-					vectors = queenPaths; numPaths = 8; break;
-			}
-			if(i>=3 && i<=5){
-				for(var k=0; k<numPaths; k++){
-					pos = j;
-					rayMoves = [];
-					while(pos!==-1){
-						pos = adjustPosition(pos, vectors[k]);
-						if(pos!==-1){
-							rayMoves.push(pos);
-						}
-					}
-					if(rayMoves.length>0){
-						positions.push(rayMoves);
-					}
-				}
-			}else{
-				for(var k=0; k<numPaths; k++){
-					pos = adjustPosition(j, vectors[k]);
-					if(pos!==-1){
-						positions.push(pos);
-					}
-				}
-			}
-			allPieceMoves[hash] = positions;
+function adjustPosition(pos, delta){
+	var file = (pos & 7)+((delta+20) & 7) - 4;
+	var finalNum; 
+	if(file<8 && file>=0){
+		finalNum = pos+delta;
+		if(finalNum<numSquares && finalNum>=0){
+			return finalNum;
 		}
 	}
+	return -1;
 }
 
 function findAllPieceMoves(pieceIds, position){
@@ -233,6 +221,61 @@ function findAllPieceMoves(pieceIds, position){
 	}	
 }
 
+function kingFreedom(pieceIds, side, validMoves, position){
+	var kingSafetyTable = genKingSafetyTable(pieceIds, side, validMoves);
+	var count = 0;
+	floodFill(kingSafetyTable, position);
+	for(var i=0; i<numSquares; i++){
+		if(kingSafetyTable[i]===1){
+			count++;
+		}
+	}
+	return count;
+}
+
+function evaluateScore(pieceIds, allMoves, numAllMoves, side){
+		var score;
+		numCalls.eval++;
+		var mobilityScore = 0;
+		var materialScore = 0;
+		var kingFreedomScore = 0;
+		var pieceId;
+		var whitePieceCount = 0;
+		var blackPieceCount = 0;
+		for(var i=0; i<numSquares; i++){
+			pieceId = pieceIds[i];
+			if(pieceId>0){
+				whitePieceCount++;
+				if(pieceId!== 6){
+					mobilityScore+= numAllMoves[i];
+				}
+				materialScore+= pieceValues[pieceId];
+			}else if(pieceId<0){
+				blackPieceCount++;
+				if(pieceId!==-6){
+					mobilityScore-= numAllMoves[i];
+				}
+				materialScore-= pieceValues[-pieceId];
+			}
+		}
+		if(whitePieceCount<2){
+			kingFreedomScore+= kingFreedom(pieceIds, 1, allMoves, findPieceId(pieceIds, 6))-numSquares;
+		}
+		if(blackPieceCount<2){
+			kingFreedomScore-= kingFreedom(pieceIds, -1, allMoves, findPieceId(pieceIds, -6))-numSquares;
+		}	
+		score = mobilityScore*5+materialScore+kingFreedomScore*2;
+		return score*side;
+}
+
+function findAllMoves(pieceIds){
+	var allMoves = [];
+	for(var i=0; i<numSquares; i++){
+		allMoves.push(findAllPieceMoves(pieceIds,i));
+	}
+	return allMoves;
+}
+
 function generateMoveList(pieceIds, side, noCheckAllowed){
 	var moveList = [];
 	for(var i=0; i<numSquares; i++){
@@ -245,8 +288,8 @@ function generateMoveList(pieceIds, side, noCheckAllowed){
 			for(var j=0; j<captures.length; j++){
 				moveList.unshift([pieceId, i, captures[j]]);
 			}
-			for(var j=0; j<numMoves; j++){
-				moveList.push([pieceId, i, moves[j]]);
+			for(var k=0; k<numMoves; k++){
+				moveList.push([pieceId, i, moves[k]]);
 			}
 		}
 	}	
@@ -422,24 +465,7 @@ function genRandomNum(n){
 	return Math.floor(Math.random()*n);
 }
 
-function hashPosition(side, pieceIds){
-	var hash1 = 0;
-	var pieceId;
-	for(var i=0; i<70; i++){
-		if(i<numSquares){
-			pieceId = pieceIds[i]; 
-			if(pieceId!==0){
-				hash1^=randZTable[i][pieceId+6];
-			}
-		}else{
-			if(pieceIds[i]>0){
-				hash1^=randZTable[i];
-			}	
-		}
-	}
-	hash1^=sideSeed[(side+1)>>1];
-	return hash1;
-}
+
 
 function findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b){
 	var a_old = a;
@@ -1081,29 +1107,7 @@ function findValidPieceMoves(pieceIds, position, noCheckAllowed){
 	return positions;
 }
 
-function adjustPosition(pos, delta){
-	var file = (pos & 7)+((delta+20) & 7) - 4;
-	var finalNum; 
-	if(file<8 && file>=0){
-		finalNum = pos+delta;
-		if(finalNum<numSquares && finalNum>=0){
-			return finalNum;
-		}
-	}
-	return -1;
-}
 
-function kingFreedom(pieceIds, side, validMoves, position){
-	var kingSafetyTable = genKingSafetyTable(pieceIds, side, validMoves);
-	var count = 0;
-	floodFill(kingSafetyTable, position);
-	for(var i=0; i<numSquares; i++){
-		if(kingSafetyTable[i]===1){
-			count++;
-		}
-	}
-	return count;
-}
 
 function findPieceId(pieceIds, pieceId){
 	if(pieceId>0){
@@ -1369,3 +1373,5 @@ function play(){
 		document.getElementById("pending").style.visibility = "hidden";
 	}
 }
+init_zobrist();
+init();
