@@ -1,6 +1,7 @@
 var numSquares = 64;
 var pieceTypes = ["-", "P", "N", "B", "R", "Q", "K"];
 var pieceValues = [0, 100, 300, 325, 500, 900, 3950];
+var order = [4, 2, 3, 5, 6, 3, 2, 4];
 var rookPaths = [-8, -1, 1, 8];
 var bishopPaths = [-9, -7, 7, 9];
 var whitePawnPaths = [7, 9];

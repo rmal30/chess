@@ -1,7 +1,6 @@
 var game, future;
 var pieceIds;
 var file = ["a", "b", "c", "d", "e", "f", "g", "h"];
-var order = [4, 2, 3, 5, 6, 3, 2, 4];
 var moveHistory, futureMoves;
 var pieceTypes = ["-", "P", "N", "B", "R", "Q", "K"];
 var gameNotation;
