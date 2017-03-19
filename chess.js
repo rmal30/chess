@@ -1,9 +1,9 @@
 var game, future;
 var pieceIds;
-var file = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+var file = ["a", "b", "c", "d", "e", "f", "g", "h"];
 var order = [4, 2, 3, 5, 6, 3, 2, 4];
 var moveHistory, futureMoves;
-var pieceTypes = ['-', 'P', 'N', 'B', 'R', 'Q', 'K'];
+var pieceTypes = ["-", "P", "N", "B", "R", "Q", "K"];
 var gameNotation;
 var noPiece = 0;
 var numSquares = 64;
@@ -33,7 +33,7 @@ function init(){
 	futureMoves = [];
 	gameNotation = [];
 	currentSide=1;
-	outcome = undefined;
+	outcome = null;
 	pendingMove = false;
 	pieceIds = [];
 	for(var i=0; i<8; i++){
@@ -48,8 +48,8 @@ function init(){
 		pieceIds[i+48] 	= -1;
 		pieceIds[i+56] = -order[i];
 	}
-	for(var i=numSquares; i<70; i++){
-		pieceIds[i] = 0;
+	for(var j=numSquares; j<70; j++){
+		pieceIds[j] = 0;
 	}
 	game = [pieceIds.slice()];
 	future = [];
@@ -259,11 +259,11 @@ function genControllingList(pieceIds, allMoves){
 	for(var i=0; i<numSquares; i++){
 		controllingPieces[i] = [];
 	}
-	for(var i=0; i<numSquares; i++){
-		pieceMoves = allMoves[i];
+	for(var k=0; k<numSquares; k++){
+		pieceMoves = allMoves[k];
 		numMoves = pieceMoves.length;
 		for(var j=0; j<numMoves; j++){
-			controllingPieces[pieceMoves[j]].push(i);
+			controllingPieces[pieceMoves[j]].push(k);
 		}
 	}
 	return controllingPieces;
@@ -702,8 +702,8 @@ function updateMoveTable(pieceIds, allMoves,numAllMoves, controllingList, moveOr
 				numAllMoves[initPiecePos] = allMoves[initPiecePos].length;
 			}
 		}
-		for(var i=0; i<numFinalPieces; i++){
-			finalPiecePos = finalPieces[i];
+		for(var j=0; j<numFinalPieces; j++){
+			finalPiecePos = finalPieces[j];
 			typeId = Math.abs(pieceIds[finalPiecePos]);
 			if(typeId>=3 && typeId<=5 && finalPiecePos!==moveOrigin){
 				allMoves[finalPiecePos] = findAllPieceMoves(pieceIds, finalPiecePos);
@@ -739,13 +739,11 @@ function floodFill(kingSafetyTable, posId){
 function genKingSafetyTable(pieceIds, side, validMoves){
 	var checkTable = [];
 	for(var i=0; i<numSquares; i++){
-		if(pieceIds[i]*side<=0 || pieceIds[i] ===6*side){
+		if(pieceIds[i]*side<=0 || pieceIds[i] === 6*side){
 			checkTable[i] = 0;
 		}else{
 			checkTable[i] = -1;
 		}
-	}
-	for(var i=0; i<numSquares; i++){
 		if(pieceIds[i]*side<0){
 			if(pieceIds[i]!==-side){
 				for(var j=0; j<validMoves[i].length; j++){	
@@ -805,11 +803,11 @@ function getNotation(pieceIds, move){
 		pieceIds[move[2]] = finalPosId;
 		var sameFile = false;
 		var sameRank = false;
-		for(var i=0; i<initPositions.length; i++){
-			if(initPositions[i]%8===move[1]%8){
+		for(var j=0; j<initPositions.length; j++){
+			if(initPositions[j]%8===move[1]%8){
 				sameFile = true;
 			}
-			if(initPositions[i]>>3===move[1]>>3){
+			if(initPositions[j]>>3===move[1]>>3){
 				sameRank = true;
 			}
 		}
@@ -1241,7 +1239,7 @@ function getCell(x, y){
 	return col+row*8;
 }
 function startMove(initPos, side){
-	if(outcome===undefined && side===currentSide && !pendingMove){
+	if(outcome===null && side===currentSide && !pendingMove){
 		pendingMove = true;
 		document.getElementById("piece-"+initPos).style.WebkitFilter='drop-shadow(1px 1px 0 yellow) drop-shadow(-1px 1px 0 yellow) drop-shadow(1px -1px 0 yellow) drop-shadow(-1px -1px 0 yellow)';
 		var possibleRays = findValidPieceMoves(pieceIds, initPos, true);
@@ -1276,7 +1274,7 @@ function startGame(){
 }
 
 function doPlay(){
-	if(outcome===undefined){
+	if(outcome===null){
 		var compPlayer = parseInt(document.getElementById("compPlayer").value);
 		if(compPlayer===currentSide || compPlayer===2){
 			document.getElementById("pending").style.visibility = "visible";
@@ -1290,7 +1288,7 @@ function doPlay(){
 function undo(){
 	if(game.length>1){
 		currentSide = -currentSide;
-		outcome = undefined;
+		outcome = null;
 		future.push(game.pop());
 		gameHashes.pop();
 		if(currentSide===1){
@@ -1342,7 +1340,7 @@ function MTDf(pieceIds,moveList, guess, side, depth, maxDepth){
 }
 
 function play(){
-	if(outcome===undefined){
+	if(outcome===null){
 		var level = parseInt(document.getElementById("level").value);
 		var moveList, allMoves;
 		var initLevel = 1;
