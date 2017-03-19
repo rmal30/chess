@@ -135,8 +135,8 @@ function detectCheck(pieceIds,side){
 		pieceIds[pos] = j*side;
 		possibleThreats = findValidPieceMoves(pieceIds, pos, false)[1];
 		numThreats = possibleThreats.length;
-		for(var i=0; i<numThreats; i++){
-			pieceId = pieceIds[possibleThreats[i]];
+		for(var k=0; k<numThreats; k++){
+			pieceId = pieceIds[possibleThreats[k]];
 			if(pieceId === - j*side || (j!==2 && pieceId===-5*side)){
 				pieceIds[pos] = 6*side;
 				return true;
@@ -341,8 +341,8 @@ function updateStatus(){
 	var notationStr = "";
 	document.getElementById("moves").innerHTML="";
 	var possibleMoves = generateMoveList(pieceIds, currentSide, true);
-	for(var i=0; i<gameNotation.length; i++){
-		notationStr+=(i+1)+". "+gameNotation[i][0]+" "+gameNotation[i][1]+" ";
+	for(var j=0; j<gameNotation.length; j++){
+		notationStr+=(j+1)+". "+gameNotation[j][0]+" "+gameNotation[j][1]+" ";
 	}	
 	var undoButton = document.getElementById("undo");
 	var redoButton = document.getElementById("redo");
