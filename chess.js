@@ -45,6 +45,19 @@ function hashPosition(side, pieceIds){
 	hash1^=sideSeed[(side+1)>>1];
 	return hash1;
 }
+
+function adjustPosition(pos, delta){
+	var file = (pos & 7)+((delta+20) & 7) - 4;
+	var finalNum; 
+	if(file<8 && file>=0){
+		finalNum = pos+delta;
+		if(finalNum<numSquares && finalNum>=0){
+			return finalNum;
+		}
+	}
+	return -1;
+}
+
 function generateAllMovesTable(){
 	var hash, vectors, numPaths, positions, rayMoves, pos;
 	for(var i=0; i<7; i++){
@@ -89,6 +102,58 @@ function generateAllMovesTable(){
 		}
 	}
 }
+
+function updateStatus(){
+	var notationStr = "";
+	document.getElementById("moves").innerHTML="";
+	var possibleMoves = generateMoveList(pieceIds, currentSide, true);
+	for(var i=0; i<gameNotation.length; i++){
+		notationStr+=(i+1)+". "+gameNotation[i][0]+" "+gameNotation[i][1]+" ";
+	}	
+	var undoButton = document.getElementById("undo");
+	var redoButton = document.getElementById("redo");
+	undoButton.disabled = game.length<=1;
+	redoButton.disabled = future.length===0;
+	var hash = hashPosition(currentSide, pieceIds);
+	var count = 0;
+	for(var i=0; i<gameHashes.length; i++){
+		if(hash===gameHashes[i]){
+			count++;
+		}
+	}
+	document.getElementById("history").innerHTML = notationStr;
+	if(detectCheck(pieceIds,1) || detectCheck(pieceIds, -1)){
+		if(possibleMoves.length===0){
+			document.getElementById("status").innerHTML="Checkmate!";
+			outcome = -currentSide;
+		}else{
+			document.getElementById("status").innerHTML="Check!";
+		}
+	}else{
+		if(possibleMoves.length===0){
+			document.getElementById("status").innerHTML="Stalemate!";
+			outcome = 0;
+		}else{
+			document.getElementById("status").innerHTML="";
+		}
+	}
+	if(count>=3){
+		document.getElementById("status").innerHTML = "Draw!";
+		outcome = 0;
+	}
+}
+
+function setupBoard(pieceIds){
+	var piecesDOM = document.getElementById("pieces");
+	var pieceHTML = "";
+	for(var i=0; i<numSquares; i++){
+		if(pieceIds[i]!==0){
+			pieceHTML+=addPiece(pieceIds[i], i, piecesDOM);
+		}
+	}
+	piecesDOM.innerHTML = pieceHTML;
+}
+
 function init(){
 	moveHistory=[];
 	futureMoves = [];
@@ -171,17 +236,7 @@ function qSearch(pieceId, controllingPieces, side){
 	return 0;
 }
 
-function adjustPosition(pos, delta){
-	var file = (pos & 7)+((delta+20) & 7) - 4;
-	var finalNum; 
-	if(file<8 && file>=0){
-		finalNum = pos+delta;
-		if(finalNum<numSquares && finalNum>=0){
-			return finalNum;
-		}
-	}
-	return -1;
-}
+
 
 function findAllPieceMoves(pieceIds, position){
 	numCalls.aMoves++;
@@ -315,6 +370,70 @@ function findAllMoves(pieceIds){
 		allMoves.push(findAllPieceMoves(pieceIds,i));
 	}
 	return allMoves;
+}
+
+function findValidPieceMoves(pieceIds, position, noCheckAllowed){
+	numCalls.vMoves++;
+	var positions = [[],[]];
+	var pieceId = pieceIds[position];
+	var typeId = Math.abs(pieceId);
+	var numPaths;
+	var p, j;
+	var possibleMoves, numMoves, possibleRays, possibleMove;
+	
+	switch(typeId){
+		case 1: positions = findValidPawnMoves(pieceIds, position, noCheckAllowed); break;
+		case 3:
+		case 4:
+		case 5:
+			possibleRays = allPieceMoves[typeId*numSquares+position];
+			numPaths = possibleRays.length;
+			for(var i=0; i<numPaths; i++){
+				possibleMoves = possibleRays[i];
+				numMoves = possibleMoves.length;
+				j=0;
+				p=noPiece;
+				while(p===noPiece && j<numMoves){		
+					possibleMove = possibleMoves[j];
+					p = pieceIds[possibleMove];
+					if(p===noPiece){
+						if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){		
+							positions[0].push(possibleMove);					
+						}				
+					}
+					else if(p*pieceId<0){
+						if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){
+							positions[1].push(possibleMove);
+						}
+					}	
+					j++;
+				}
+			}
+			break;
+		case 2:
+			possibleMoves = allPieceMoves[2*numSquares+position];
+			numMoves = possibleMoves.length;
+			for(var i=0; i<numMoves; i++){
+				possibleMove = possibleMoves[i];
+				p = pieceIds[possibleMove];
+				if(p===noPiece){
+					if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){		
+						positions[0].push(possibleMove);					
+					}
+				}else if(p*pieceId<0){
+					if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){
+						positions[1].push(possibleMove);
+					}
+				}					
+			}	
+			break;
+		case 6:
+			positions = findValidKingMoves(pieceIds, position, noCheckAllowed);
+			break;
+		
+	default: return [];
+	}	
+	return positions;
 }
 
 function generateMoveList(pieceIds, side, noCheckAllowed){
@@ -1044,69 +1163,7 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
 	return positions;
 }
 
-function findValidPieceMoves(pieceIds, position, noCheckAllowed){
-	numCalls.vMoves++;
-	var positions = [[],[]];
-	var pieceId = pieceIds[position];
-	var typeId = Math.abs(pieceId);
-	var numPaths;
-	var p, j;
-	var possibleMoves, numMoves, possibleRays, possibleMove;
-	
-	switch(typeId){
-		case 1: positions = findValidPawnMoves(pieceIds, position, noCheckAllowed); break;
-		case 3:
-		case 4:
-		case 5:
-			possibleRays = allPieceMoves[typeId*numSquares+position];
-			numPaths = possibleRays.length;
-			for(var i=0; i<numPaths; i++){
-				possibleMoves = possibleRays[i];
-				numMoves = possibleMoves.length;
-				j=0;
-				p=noPiece;
-				while(p===noPiece && j<numMoves){		
-					possibleMove = possibleMoves[j];
-					p = pieceIds[possibleMove];
-					if(p===noPiece){
-						if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){		
-							positions[0].push(possibleMove);					
-						}				
-					}
-					else if(p*pieceId<0){
-						if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){
-							positions[1].push(possibleMove);
-						}
-					}	
-					j++;
-				}
-			}
-			break;
-		case 2:
-			possibleMoves = allPieceMoves[2*numSquares+position];
-			numMoves = possibleMoves.length;
-			for(var i=0; i<numMoves; i++){
-				possibleMove = possibleMoves[i];
-				p = pieceIds[possibleMove];
-				if(p===noPiece){
-					if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){		
-						positions[0].push(possibleMove);					
-					}
-				}else if(p*pieceId<0){
-					if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){
-						positions[1].push(possibleMove);
-					}
-				}					
-			}	
-			break;
-		case 6:
-			positions = findValidKingMoves(pieceIds, position, noCheckAllowed);
-			break;
-		
-	default: return [];
-	}	
-	return positions;
-}
+
 
 
 
@@ -1164,16 +1221,6 @@ function getPosFromId(id){
 	return file[id&7]+((id>>3)+1);
 }
 
-function setupBoard(pieceIds){
-	var piecesDOM = document.getElementById("pieces");
-	var pieceHTML = "";
-	for(var i=0; i<numSquares; i++){
-		if(pieceIds[i]!==0){
-			pieceHTML+=addPiece(pieceIds[i], i, piecesDOM);
-		}
-	}
-	piecesDOM.innerHTML = pieceHTML;
-}
 function addPiece(pieceId, position, piecesDOM){
 	var left = (12 + 52*(position%8)).toString();
 	var top = (7*52 + 12 - 52*(position>>3)).toString();
@@ -1187,45 +1234,7 @@ function addPiece(pieceId, position, piecesDOM){
 	return '<img src="images/'+image+'.png" id="piece-'+position+'" style="position:absolute; left:'+left+'px;top:'+top+'px;'
 	+'" onclick="startMove('+position+','+Math.sign(pieceId)+')"></img>';
 }
-function updateStatus(){
-	var notationStr = "";
-	document.getElementById("moves").innerHTML="";
-	var possibleMoves = generateMoveList(pieceIds, currentSide, true);
-	for(var i=0; i<gameNotation.length; i++){
-		notationStr+=(i+1)+". "+gameNotation[i][0]+" "+gameNotation[i][1]+" ";
-	}	
-	var undoButton = document.getElementById("undo");
-	var redoButton = document.getElementById("redo");
-	undoButton.disabled = game.length<=1;
-	redoButton.disabled = future.length===0;
-	var hash = hashPosition(currentSide, pieceIds);
-	var count = 0;
-	for(var i=0; i<gameHashes.length; i++){
-		if(hash===gameHashes[i]){
-			count++;
-		}
-	}
-	document.getElementById("history").innerHTML = notationStr;
-	if(detectCheck(pieceIds,1) || detectCheck(pieceIds, -1)){
-		if(possibleMoves.length===0){
-			document.getElementById("status").innerHTML="Checkmate!";
-			outcome = -currentSide;
-		}else{
-			document.getElementById("status").innerHTML="Check!";
-		}
-	}else{
-		if(possibleMoves.length===0){
-			document.getElementById("status").innerHTML="Stalemate!";
-			outcome = 0;
-		}else{
-			document.getElementById("status").innerHTML="";
-		}
-	}
-	if(count>=3){
-		document.getElementById("status").innerHTML = "Draw!";
-		outcome = 0;
-	}
-}
+
 function highlightMoves(rays){
 	document.getElementById("moves").innerHTML="";
 	var moves;
