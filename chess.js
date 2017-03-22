@@ -6,7 +6,7 @@ var pieceTypes = ["-", "P", "N", "B", "R", "Q", "K"];
 var gameNotation;
 var noPiece = 0;
 var numSquares = 64;
-var pieceValues = [0, 100, 300, 325, 500, 900, 3950];
+var pieceValues = [0, 96, 300, 325, 500, 900, 3950];
 var winScore = 100000;
 var bestMoves;
 var outcome;
@@ -17,6 +17,7 @@ var bestMoveTable;
 var allPieceMoves = [];
 var numCalls = {eval:0, p:0, k:0, n:0, vMoves:0, check:0, umt:0, aMoves:0, mtdF:0};
 var currentSide, pendingMove;
+var pawnSquareTable = [0, 0, 1, 3, 13, 50, 201, 804];
 
 function hashPosition(side, pieceIds){
 	/*
@@ -413,10 +414,17 @@ function evaluateScore(pieceIds, allMoves, numAllMoves, side){
 					mobilityScore+= numAllMoves[i];
 				}
 				materialScore+= pieceValues[pieceId];
+				if(pieceId===1){
+					materialScore+=pawnSquareTable[i>>3];
+				}
+				
 			}else if(pieceId<0){
 				blackPieceCount++;
 				if(pieceId!==-6){
 					mobilityScore-= numAllMoves[i];
+				}
+				if(pieceId===-1){
+					materialScore-=pawnSquareTable[7 - (i>>3)];
 				}
 				materialScore-= pieceValues[-pieceId];
 			}
@@ -463,6 +471,11 @@ function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingL
 		if(depth===0){	
 			var score = guessMoveScore(pieceIds, move, initScore, controllingList, side);
 			if(score !== null){
+				if(score>maxDepth - 1){
+					score-= maxDepth - 1;
+				}else if(score<maxDepth - 1){
+					score+= maxDepth - 1;
+				}
 				return score;
 			}
 		}
@@ -471,11 +484,10 @@ function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingL
 		updateMoveTable(pieceIds, allMoves, numAllMoves, controllingList, moveOrigin, moveDest, undefined);
 	}
 	if(depth===0){
-		newScore = evaluateScore(pieceIds, allMoves, numAllMoves, side);
-			
-		if(newScore>0){
+		newScore = evaluateScore(pieceIds, allMoves, numAllMoves, side);	
+		if(newScore>maxDepth - depth-1){
 			newScore-= maxDepth - depth - 1;
-		}else{
+		}else if(newScore<-maxDepth + depth - 1){
 			newScore+= maxDepth - depth - 1;
 		}
 	}else{
@@ -492,11 +504,26 @@ function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingL
 			}
 			if(!draw){
 				replies = findBestMove(pieceIds,undefined,allMoves, -side, depth, maxDepth, -b, -a);
-				newScore = -replies[2];
+				newScore = -replies[2];	
+				/*
+				if(newScore>0){
+					newScore--;
+				}else if(newScore<0){
+					newScore++;
+				}
+				*/	
+				/*
+				if(newScore>maxDepth - depth){
+					newScore-= maxDepth - depth;
+				}else if(newScore<-maxDepth + depth){
+					newScore+= maxDepth - depth;
+				}
+				*/	
+				
 			}
 		}else{
 			if(detectCheck(pieceIds, -side)){
-				newScore =  winScore-maxDepth+depth;
+				newScore =  winScore-maxDepth+depth+1;
 			}else{
 				newScore = 0;
 			}
