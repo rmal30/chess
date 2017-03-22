@@ -171,12 +171,15 @@ function guessMoveScore(pieceIds, move, initScore, controllingList, side){
 	var moveDest = move[2];
 	var score = initScore;
 	var destId = pieceIds[moveDest];
+	var isNull = true;
 	if(destId!==0){
 		score+=pieceValues[-destId*side];
+		isNull = false;
 	}
 	if(pieceId===side && moveDest>>3 === 3.5+3.5*side){
 		score+= pieceValues[5]-pieceValues[1];
 		pieceId = 5*side;
+		isNull = false;
 	}
 	var controllingPieces = controllingList[moveDest];
 	var numMoves = controllingPieces.length;
@@ -186,7 +189,11 @@ function guessMoveScore(pieceIds, move, initScore, controllingList, side){
 			return score;
 		}
 	}
-	return score;
+	if(isNull){
+		return null;	
+	}else{
+		return score;
+	}
 }
 
 function highlightMoves(rays){

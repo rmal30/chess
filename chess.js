@@ -462,7 +462,7 @@ function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingL
 		moveDest = move[2];
 		if(depth===0){	
 			var score = guessMoveScore(pieceIds, move, initScore, controllingList, side);
-			if(score!==initScore){
+			if(score !== null){
 				return score;
 			}
 		}
