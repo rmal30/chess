@@ -1084,7 +1084,7 @@ function play(){
 		if(bestMoves.length>3){
 			applyMove(bestMoves.slice(3, 6));
 		}
-		if(Object.keys.length(bestMoveTable)>1000000){
+		if(Object.keys(bestMoveTable).length>1000000){
 			bestMoveTable = {};
 		}
 		updateStatus();
