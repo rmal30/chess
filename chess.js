@@ -19,6 +19,7 @@ var numCalls = {eval:0, p:0, k:0, n:0, vMoves:0, check:0, umt:0, aMoves:0, mtdF:
 var currentSide, pendingMove;
 
 function hashPosition(side, pieceIds){
+	/*
 	var hash1 = 0;
 	var pieceId;
 	for(var i=0; i<70; i++){
@@ -34,7 +35,8 @@ function hashPosition(side, pieceIds){
 		}
 	}
 	hash1^=randZTable[70+(side+1)>>1];
-	return hash1;
+	*/
+	return pieceIds.toString()+"-"+side;
 }
 
 function detectCheck(pieceIds,side){
@@ -323,7 +325,7 @@ function init(){
 	pieceIds = newGamePosition();
 	game = [pieceIds.slice()];
 	future = [];
-	bestMoveTable = new Array(maxInt-1);
+	bestMoveTable = {};//new Array(maxInt-1);
 	gameHashes = [hashPosition(currentSide, pieceIds)];
 	allPieceMoves = generateAllMovesTable();
 	setupBoard(pieceIds);
