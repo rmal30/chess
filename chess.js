@@ -569,13 +569,14 @@ function findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b)
 	}
 	
 	var initScore = evaluateScore(pieceIds, allMoves, numAllMoves, side);
-	 
+	 /*
 	 if(depth>3){
 		var nullMoveScore = scoreMove(pieceIds, undefined, initScore,allMoves, numAllMoves, controllingList, side, depth - 3 - (depth&1), maxDepth, b-1, b);
 		if(nullMoveScore>=b){
 			depth=2;
 		}
 	}
+	*/
 	numMoves = moveList.length;
 	for(var i=0; i<numMoves; i++){
 		move = moveList[i];	
@@ -1082,6 +1083,9 @@ function play(){
 		}
 		if(bestMoves.length>3){
 			applyMove(bestMoves.slice(3, 6));
+		}
+		if(Object.keys.length(bestMoveTable)>1000000){
+			bestMoveTable = {};
 		}
 		updateStatus();
 		document.getElementById("pending").style.visibility = "hidden";
