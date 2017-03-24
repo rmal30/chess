@@ -498,7 +498,7 @@ function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingL
 		updateMoveTable(pieceIds, allMoves, numAllMoves, controllingList, moveOrigin, moveDest, undefined);
 	}
 	if(depth===0){
-		var captureList = generateCaptureList(pieceIds, -side);
+		var captureList = [];//generateCaptureList(pieceIds, -side);
 		if(doQSearch && captureList.length>0){
 			replies = findBestMove(pieceIds,captureList,allMoves, -side, 1, maxDepth, -b, -a);
 			newScore = -replies[2];
