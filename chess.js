@@ -265,6 +265,21 @@ function generateMoveList(pieceIds, side, noCheckAllowed){
 	return moveList;
 }
 
+function generateCaptureList(pieceIds, side){
+	var moveList = [];
+	for(var i=0; i<numSquares; i++){
+		var pieceId = pieceIds[i];
+		if(pieceId*side>0){
+			var options = findValidPieceMoves(pieceIds, i, false); 
+			var captures = options[1];
+			for(var j=0; j<captures.length; j++){
+				moveList.unshift([pieceId, i, captures[j]]);
+			}
+		}
+	}	
+	return moveList;
+}
+
 function updateStatus(){
 	var notationStr = "";
 	document.getElementById("moves").innerHTML="";
@@ -465,18 +480,17 @@ function legalMoveExists(pieceIds, side){
 function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingList, side, depth, maxDepth, a, b){
 	var newScore, hash, numHashes, replies;
 	var capturedPiece, moveDest, moveOrigin, originalMoves;
+	
 	if(move){
 		moveOrigin = move[1];
 		moveDest = move[2];
+		var doQSearch = false;
 		if(depth===0){	
 			var score = guessMoveScore(pieceIds, move, initScore, controllingList, side);
 			if(score !== null){
-				if(score>maxDepth - 1){
-					score-= maxDepth - 1;
-				}else if(score<maxDepth - 1){
-					score+= maxDepth - 1;
-				}
 				return score;
+			}else{
+				doQSearch = true;
 			}
 		}
 		originalMoves = copyArr(allMoves[moveOrigin]);
@@ -484,7 +498,13 @@ function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingL
 		updateMoveTable(pieceIds, allMoves, numAllMoves, controllingList, moveOrigin, moveDest, undefined);
 	}
 	if(depth===0){
-		newScore = evaluateScore(pieceIds, allMoves, numAllMoves, side);	
+		var captureList = generateCaptureList(pieceIds, -side);
+		if(doQSearch && captureList.length>0){
+			replies = findBestMove(pieceIds,captureList,allMoves, -side, 1, maxDepth, -b, -a);
+			newScore = -replies[2];
+		}else{
+			newScore = evaluateScore(pieceIds, allMoves, numAllMoves, side);
+		}
 		if(newScore>maxDepth - depth-1){
 			newScore-= maxDepth - depth - 1;
 		}else if(newScore<-maxDepth + depth - 1){
