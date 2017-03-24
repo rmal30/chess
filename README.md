@@ -8,9 +8,10 @@ Chess.js is a web app which can play chess. It features an AI that uses minimax 
  - Move ordering
  - Iterative deepening
 
-The program evaluates the board on 3 criteria:
+The program evaluates the board on 4 criteria:
  - Piece values
  - Board control
+ - Pawn advancement
  - King freedom (for the endgame only)
 
 Features:
