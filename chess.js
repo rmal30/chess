@@ -280,10 +280,12 @@ function generateCaptureList(pieceIds, allMoves, side){
 				if(pieceId*side<-side*pieceIds[capturePos]){
 					moveList.unshift([pieceId, i, capturePos]);
 				}else{
-					controllingPieces = [];
+					controllingPieces = genControllingArr(pieceIds, controllingList[capturePos]);
+					/*
 					for(var k=0; k<controllingList[capturePos].length; k++){
 						controllingPieces.push(pieceIds[controllingList[capturePos][k]]);
 					}
+					*/
 					score = qSearch(pieceIds[capturePos], controllingPieces, side);
 					if(score>0){
 						moveList.unshift([pieceId, i, capturePos]);
