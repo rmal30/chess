@@ -13,11 +13,12 @@
 		</select>
 
 		Level: <input id="level" type="number" min="1" max="10" value="4"/>
+		Use QSearch: <input type="checkbox" id="qsearch" value="false"/>
 		<div id="buttons" style="float:bottom">
 			<button onclick="startGame()">New game</button>
 			<button onclick="undo()" id="undo">Undo</button>
 			<button onclick="redo()" id="redo">Redo</button>
-			Use QSearch: <input type="checkbox" id="qsearch" value="false"/>
+			
 			<span id="pending" style="visibility:hidden;">Thinking...</span>
 		</div>
 		<div id="status"></div>
