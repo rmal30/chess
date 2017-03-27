@@ -22,3 +22,4 @@ Features:
  - Undo and redo
  - Choosing levels from 1 to 10
  - Allows 2 humans or computers to play
+ - Quiescence search allows for better play (slower)
