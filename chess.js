@@ -265,15 +265,30 @@ function generateMoveList(pieceIds, side, noCheckAllowed){
 	return moveList;
 }
 
-function generateCaptureList(pieceIds, side){
+function generateCaptureList(pieceIds, allMoves, side){
 	var moveList = [];
+	var score, options, captures, capturePos;
+	var controllingPieces = [];
+	var controllingList = genControllingList(pieceIds, allMoves)
 	for(var i=0; i<numSquares; i++){
 		var pieceId = pieceIds[i];
 		if(pieceId*side>0){
-			var options = findValidPieceMoves(pieceIds, i, false); 
-			var captures = options[1];
+			options = findValidPieceMoves(pieceIds, i, false); 
+			captures = options[1];
 			for(var j=0; j<captures.length; j++){
-				moveList.unshift([pieceId, i, captures[j]]);
+				capturePos = captures[j];
+				if(pieceId*side<-side*pieceIds[capturePos]){
+					moveList.unshift([pieceId, i, capturePos]);
+				}else{
+					controllingPieces = [];
+					for(var k=0; k<controllingList[capturePos].length; k++){
+						controllingPieces.push(pieceIds[controllingList[capturePos][k]]);
+					}
+					score = qSearch(pieceIds[capturePos], controllingPieces, side);
+					if(score>0){
+						moveList.unshift([pieceId, i, capturePos]);
+					}
+				}
 			}
 		}
 	}	
@@ -480,17 +495,14 @@ function legalMoveExists(pieceIds, side){
 function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingList, side, depth, maxDepth, a, b){
 	var newScore, hash, numHashes, replies;
 	var capturedPiece, moveDest, moveOrigin, originalMoves;
-	
+	var doQSearch = document.getElementById("qsearch").checked;
 	if(move){
 		moveOrigin = move[1];
 		moveDest = move[2];
-		var doQSearch = false;
-		if(depth===0){	
+		if( depth===0 && !doQSearch){	
 			var score = guessMoveScore(pieceIds, move, initScore, controllingList, side);
 			if(score !== null){
 				return score;
-			}else{
-				doQSearch = true;
 			}
 		}
 		originalMoves = copyArr(allMoves[moveOrigin]);
@@ -498,8 +510,13 @@ function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingL
 		updateMoveTable(pieceIds, allMoves, numAllMoves, controllingList, moveOrigin, moveDest, undefined);
 	}
 	if(depth===0){
-		var captureList = [];//generateCaptureList(pieceIds, -side);
-		if(doQSearch && captureList.length>0){
+		var captureList;
+		if(doQSearch){
+			captureList = generateCaptureList(pieceIds,allMoves, -side);
+		}else{
+			captureList = [];
+		}
+		if(captureList.length>0){
 			replies = findBestMove(pieceIds,captureList,allMoves, -side, 1, maxDepth, -b, -a);
 			newScore = -replies[2];
 		}else{
