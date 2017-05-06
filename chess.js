@@ -442,7 +442,7 @@ function evaluateScore(pieceIds, allMoves, numAllMoves, side){
 			pieceId = pieceIds[i];
 			if(pieceId>0){
 				whitePieceCount++;
-				if(pieceId!== 6){
+				if(pieceId<=4){
 					mobilityScore+= numAllMoves[i];
 				}
 				materialScore+= pieceValues[pieceId];
@@ -452,7 +452,7 @@ function evaluateScore(pieceIds, allMoves, numAllMoves, side){
 				
 			}else if(pieceId<0){
 				blackPieceCount++;
-				if(pieceId!==-6){
+				if(pieceId>=-4){
 					mobilityScore-= numAllMoves[i];
 				}
 				if(pieceId===-1){
