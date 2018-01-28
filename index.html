@@ -1,33 +1,51 @@
 <HTML>
-	<div style="width:650px"> 
-	<div style="float:left; width:65%; height:600px;">
-		<img src="images/board.png" height="416px" width="416px" style="position:relative;"></img>
-		<div id="pieces"></div> <div id="moves"></div>
-		
-		Computer:
-		<select id="compPlayer" onchange="doPlay()">
-			<option value=0>No computer</option>
-			<option value=1>White</option>
-			<option value=-1>Black</option>
-			<option value=2>Both</option>
-		</select>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+</head>
+    <div  style="width:600px;position:relative;"> 
+        <div style="float:left; width:336px; height:100%; margin-left:8px; margin-top:8px;">
+            <img src="images/board.png" height="336px" width="336px" style="position:relative;"></img>
+            <div id="pieces"></div> <div id="moves"></div>
+            <div id="buttons" style="margin-top: 10px; margin-left:5%; text-align:justify; width:90%">
+                
+                <button class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--colored" style="display:inline-block" onclick="startGame()">
+                    Restart 
+                </button>
+                
+                <button class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--colored" style="display:inline-block" onclick="undo()" id="undo">
+                    Undo
+                </button>
+                
+                <button class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--colored" style="display:inline-block" onclick="redo()" id="redo">
+                    Redo
+                </button>
+                <div style="width:100%; display:inline-block"></div> 
+            </div>
 
-		Level: <input id="level" type="number" min="1" max="10" value="4"/>
-		Use QSearch: <input type="checkbox" id="qsearch" value="false" disabled/>
-		<div id="buttons" style="float:bottom">
-			<button onclick="startGame()">New game</button>
-			<button onclick="undo()" id="undo">Undo</button>
-			<button onclick="redo()" id="redo">Redo</button>
-			
-			<span id="pending" style="visibility:hidden;">Thinking...</span>
-		</div>
-		<div id="status"></div>
-		</div>
-		<div style="width:35%; height:400px; float:right;">
-			<div style="text-align:center">Move history:</div> 
-			<textarea id="history" style="float:center; width:100%; height:100%" readonly></textarea>
-		</div>
-</div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:45%; float:left;"> 
+                <label class="mdl-textfield__label">Computer:</label>
+                <select class="mdl-textfield__input" id="compPlayer" onchange="doPlay()">
+                    <option value=0>No computer</option>
+                    <option value=1>White</option>
+                    <option value=-1>Black</option>
+                    <option value=2>Both</option>
+                </select>
+            </div>
+            
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:45%; float:right;">  
+                <label class="mdl-textfield__label">Level: </label> 
+                <input class="mdl-textfield__input" id="level" type="number" min="1" max="10" value="4"/>
+            </div>
+                <div id="status"></div>
+                <span id="pending" style="visibility:hidden;">Thinking...</span>
+        </div>
+        
+        <div style="height:430px; margin-left:350px;">
+            <textarea id="history" style="width:200px; height:100%; margin-top:8px" readonly></textarea>
+        </div>
+    </div>
 
 </HTML>
 <script type="text/javascript" src="utils.js"></script>
