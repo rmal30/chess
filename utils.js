@@ -1,4 +1,4 @@
-var numSquares = 64; //Number of squares on chess board
+var numSquares = 64, squareSize = 42; //Number of squares on chess board
 var pieceTypes = ["-", "P", "N", "B", "R", "Q", "K"]; //Piece types
 var pieceValues = [0, 100, 300, 325, 500, 900, 3950]; //Values for pieces
 var order = [4, 2, 3, 5, 6, 3, 2, 4]; //Identifies the position of pieces on the first or last rank
@@ -68,15 +68,14 @@ function genControllingArr(pieceIds, controllingPieceIds){
 
 //Find the square clicked by the user given the x-y coordinates of the mouse
 function getCell(x, y){
-    var row = Math.ceil((-y+5)/42)+7;
-    var col = Math.floor((x-5)/42);
+    var row = Math.ceil((-y+5)/squareSize)+7;
+    var col = Math.floor((x-5)/squareSize);
     return col+row*8;
 }
 
 // Add a piece to the gui board
 function addPiece(pieceId, position, piecesDOM){
     var length = 8;
-    var squareSize = 42;
     var left = length - 1 + squareSize*(position%length);
     var top = (length - 1)*squareSize + length - 1 - squareSize*Math.floor(position/length);
     var color;
@@ -224,7 +223,6 @@ function guessMoveScore(pieceIds, move, initScore, controllingList, side){
 function highlightMoves(rays){
     var DOMStr = "";
     var moves;
-    var squareSize = 42;
     var offset = 8;
     for(var i=0; i<rays.length; i++){
         moves = rays[i];

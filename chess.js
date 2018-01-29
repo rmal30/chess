@@ -44,7 +44,8 @@ function hashPosition(side, pieceIds){
 function detectCheck(pieceIds, side){
     numCalls.check++;
     var possibleThreats, numThreats;
-    var pos = findPieceId(pieceIds, 6*side);
+    var kingId = 6;
+    var pos = findPieceId(pieceIds, kingId*side);
     if(pos === -1){
         return true; //Can't find the king
     }
@@ -53,9 +54,9 @@ function detectCheck(pieceIds, side){
     if((pRight!==-1 && pieceIds[pRight] === -side) || (pLeft!==-1 && pieceIds[pLeft] ===  -side)){
         return true; //King attacked by pawns
     } 
-    var moves = allPieceMoves[6*numSquares+pos];
+    var moves = allPieceMoves[kingId*numSquares+pos];
     for(var i=0; i<moves.length; i++){
-        if(pieceIds[moves[i]]===-6*side){
+        if(pieceIds[moves[i]]===-kingId*side){
             return true; //King attacked by opposite king
         }
     }
@@ -68,12 +69,12 @@ function detectCheck(pieceIds, side){
         for(var k=0; k<numThreats; k++){
             pieceId = pieceIds[possibleThreats[k]];
             if(pieceId === - j*side || (j!==2 && pieceId===-5*side)){
-                pieceIds[pos] = 6*side; //Change back to king
+                pieceIds[pos] = kingId*side; //Change back to king
                 return true; //King attacked by knight, bishop, rook or queen
             }
         }
     }
-    pieceIds[pos] = 6*side; //Change back to king, no threats found
+    pieceIds[pos] = kingId*side; //Change back to king, no threats found
     return false;
 }
 
@@ -324,25 +325,27 @@ function updateStatus(){
         }
     }
     document.getElementById("history").innerHTML = notationStr;
+    var statusText;
     if(detectCheck(pieceIds,1) || detectCheck(pieceIds, -1)){
         if(possibleMoves.length===0){
-            document.getElementById("status").innerHTML="Checkmate!";
+            statusText = "Checkmate!";
             outcome = -currentSide;
         }else{
-            document.getElementById("status").innerHTML="Check!";
+            statusText = "Check!";
         }
     }else{
         if(possibleMoves.length===0){
-            document.getElementById("status").innerHTML="Stalemate!";
+            statusText = "Stalemate!";
             outcome = 0;
         }else{
-            document.getElementById("status").innerHTML="";
+            statusText = "";
         }
     }
     if(count>=3){
-        document.getElementById("status").innerHTML = "Draw!";
+        statusText = "Draw!";
         outcome = 0;
     }
+    document.getElementById("status").innerHTML = statusText;
 }
 
 //Sets up the pieces based on a board position
