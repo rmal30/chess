@@ -80,14 +80,14 @@ function kingFreedom(pieceIds, side, validMoves, position){
  function genKingSafetyTable(pieceIds, side, validMoves){
     var checkTable = [];
     for(var i=0; i<numSquares; i++){
-        if(pieceIds[i]*side<=0 || pieceIds[i] === 6*side){
+        if(pieceIds[i]*side <= 0 || pieceIds[i] === 6*side){
             checkTable[i] = 0;
         }else{
             checkTable[i] = -1;
         }
         if(pieceIds[i]*side<0){
             if(pieceIds[i]!==-side){
-                for(var j=0; j<validMoves[i].length; j++){    
+                for(var j = 0; j<validMoves[i].length; j++){    
                     checkTable[validMoves[i][j]] = -1;            
                 }
             }else{

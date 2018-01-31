@@ -1,10 +1,5 @@
-var file = ["a", "b", "c", "d", "e", "f", "g", "h"];
-var pieceTypes = ["-", "P", "N", "B", "R", "Q", "K"];
 var noPiece = 0;
 var numSquares = 64;
-var bestMoves, outcome, randZTable;
-var gameHashes = [];
-var bestMoveTable;
 var allPieceMoves = [];
 var numCalls = {eval:0, p:0, k:0, n:0, vMoves:0, check:0, umt:0, aMoves:0, mtdF:0};
 
@@ -28,7 +23,6 @@ function genNumAllMoves(allMoves){
     return numAllMoves;
 }
 
-
 //Find the piece types controlling a square
 function genControllingArr(pieceIds, controllingPieceIds){
     var arrLength = controllingPieceIds.length;
@@ -45,8 +39,6 @@ function genControllingArr(pieceIds, controllingPieceIds){
     }
     return arr;
 }
-
-
 
 //Identify which squares control a given square
 function genControllingList(pieceIds, allMoves){
