@@ -1,0 +1,44 @@
+.inline{
+    display: inline-block;
+}
+
+#empty{
+    width:100%;
+}
+
+#compForm{
+    width:45%;
+    float:left;
+}
+
+#levelForm{
+    width:45%;
+    float:right;
+}
+
+#history{
+    width:200px; 
+    margin-top:8px;
+    margin-left:4px;
+    height:430px; 
+}
+
+#buttons{
+    margin-top: 10px; 
+    margin-left:5%; 
+    text-align:justify; 
+    width:90%
+}
+
+#game{
+    float:left; 
+    width:336px; 
+    height:100%; 
+    margin-left:8px; 
+    margin-top:8px;
+}
+
+#main{
+    width:600px;
+    position:relative;
+}

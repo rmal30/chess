@@ -1,30 +1,31 @@
 <HTML>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.teal-blue.min.css">
+    <link rel="stylesheet" href="style.css">
     <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
 </head>
-    <div  style="width:600px;position:relative;"> 
-        <div style="float:left; width:336px; height:100%; margin-left:8px; margin-top:8px;">
-            <img src="images/board.png" height="336px" width="336px" style="position:relative;"></img>
+    <div id="main"> 
+        <div id="game">
+            <img src="images/board.png" height="336px" width="336px"></img>
             <div id="pieces"></div> <div id="moves"></div>
-            <div id="buttons" style="margin-top: 10px; margin-left:5%; text-align:justify; width:90%">
+            <div id="buttons">
                 
-                <button class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--colored" style="display:inline-block" onclick="startGame()">
+                <button class="inline mdl-button mdl-js-button mdl-button--raised mdl-button--colored" onclick="startGame()">
                     Restart 
                 </button>
                 
-                <button class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--colored" style="display:inline-block" onclick="undo()" id="undo">
+                <button class="inline mdl-button mdl-js-button mdl-button--raised mdl-button--colored" onclick="undo()" id="undo">
                     Undo
                 </button>
                 
-                <button class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-button--colored" style="display:inline-block" onclick="redo()" id="redo">
+                <button class="inline mdl-button mdl-js-button mdl-button--raised mdl-button--colored" onclick="redo()" id="redo">
                     Redo
                 </button>
-                <div style="width:100%; display:inline-block"></div> 
+                <div id="empty" class="inline"></div> 
             </div>
 
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:45%; float:left;"> 
+            <div id="compForm" class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label"> 
                 <label class="mdl-textfield__label">Computer:</label>
                 <select class="mdl-textfield__input" id="compPlayer" onchange="doPlay()">
                     <option value=0>No computer</option>
@@ -34,7 +35,7 @@
                 </select>
             </div>
             
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:45%; float:right;">  
+            <div id="levelForm" class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">  
                 <label class="mdl-textfield__label">Level: </label> 
                 <input class="mdl-textfield__input" id="level" type="number" min="1" max="10" value="4"/>
             </div>
@@ -42,12 +43,13 @@
                 <span id="pending" style="visibility:hidden;">Thinking...</span>
         </div>
         
-        <div style="height:430px; margin-left:350px;">
-            <textarea id="history" style="width:200px; height:100%; margin-top:8px" readonly></textarea>
+        <div>
+            <textarea id="history" readonly></textarea>
         </div>
     </div>
 
 </HTML>
-<script type="text/javascript" src="utils.js"></script>
-<script type="text/javascript" src="chess.js"></script>
-
+<script type="text/javascript" src="moves.js"></script>
+<script type="text/javascript" src="scoring.js"></script>
+<script type="text/javascript" src="agent.js"></script>
+<script type="text/javascript" src="main.js"></script>
