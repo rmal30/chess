@@ -407,7 +407,7 @@ function highlightMoves(rays){
         moves = rays[i];
         for(var j=0; j<moves.length;j++){
             var left = offset + squareSize*(moves[j]%width);
-            var top = width*squareSize + offset - squareSize*Math.floor(moves[j]/width);
+            var top = (width-1)*squareSize + offset - squareSize*Math.floor(moves[j]/width);
             DOMStr+='<div style="position:absolute; left:'+left+'px;top:'+top+'px; height:'+squareSize+'px; width:'+squareSize+'px; background-color: rgba(255, 255, 0, 0.2)"></div>';
         }
     }
