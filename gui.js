@@ -73,8 +73,9 @@ function addPiece(pieceId, position, piecesDOM){
         color = "w";    
     }
     var image = pieceTypes[Math.abs(pieceId)].toLowerCase()+color;
-    return '<img src="images/'+image+'.png" id="piece-'+position+'" style="position:absolute; left:'+left+'px;top:'+top+'px;'
-    +'" onclick="startMove('+position+','+Math.sign(pieceId)+')"></img>';
+    var startMoveFunc = '"startMove(' + position + ',' + Math.sign(pieceId) + ')"'
+    return '<img src="images/'+image+'.png" id="piece-'+position+'" style="position:absolute; left:'+left+'px;top:'+top+'px;"'
+    +' ontouchend='+startMoveFunc +' onclick=' + startMoveFunc + '></img>';
 }
 
 //Generate a random integer from 0 to n-1
@@ -291,8 +292,14 @@ function startMove(initPos, side){
         document.getElementById("piece-"+initPos).style.WebkitFilter='drop-shadow(1px 1px 0 yellow) drop-shadow(-1px 1px 0 yellow) drop-shadow(1px -1px 0 yellow) drop-shadow(-1px -1px 0 yellow)';
         var possibleRays = findValidPieceMoves(pieceIds, initPos, true);
         document.getElementById("moves").innerHTML = highlightMoves(possibleRays);
-        document.addEventListener('mouseup', function fmove() {
-            var cell = getCell(event.pageX,event.pageY);
+
+        fmove = function(e){
+            console.log(e)
+            if(e.targetTouches){
+                var cell = getCell(e.changedTouches[0].pageX, e.changedTouches[0].pageY)
+            }else{    
+                var cell = getCell(e.pageX,e.pageY);
+            }
             if(cell !== initPos){
                 var valid = false;
                 for(var i = 0; i < possibleRays.length; i++){
@@ -307,12 +314,16 @@ function startMove(initPos, side){
                 }else{
                     document.getElementById("piece-" + initPos).style.WebkitFilter='none';
                     document.removeEventListener('mouseup', fmove);
+                    document.removeEventListener('touchend', fmove);
                 }
                 document.getElementById("moves").innerHTML = "";    
             }
             pendingMove = false;
             document.removeEventListener('mouseup', fmove);
-        });
+            document.removeEventListener('touchend', fmove);
+        }
+        document.addEventListener('mouseup', fmove);
+        document.addEventListener('touchend', fmove);
     }
 }
 
