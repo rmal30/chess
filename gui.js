@@ -1,3 +1,4 @@
+"use strict";
 var game, future;
 var moveHistory, futureMoves;
 var pieceIds; //Board
@@ -63,17 +64,18 @@ function getPosFromId(id){
 }
 
 // Add a piece to the gui board
-function addPiece(pieceId, position, piecesDOM){
+function addPiece(pieceId, position){
     var left = width - 1 + squareSize*(position%width);
     var top = (width - 1)*squareSize + width - 1 - squareSize*Math.floor(position/width);
     var color;
     if(pieceId<0){
         color = "b";
     }else{
-        color = "w";    
+        color = "w";
     }
     var image = pieceTypes[Math.abs(pieceId)].toLowerCase()+color;
-    var startMoveFunc = '"startMove(' + position + ',' + Math.sign(pieceId) + ')"'
+
+    var startMoveFunc = '"startMove(event,' + position + ',' + Math.sign(pieceId)+')"';
     return '<img src="images/'+image+'.png" id="piece-'+position+'" style="position:absolute; left:'+left+'px;top:'+top+'px;"'
     +' ontouchend='+startMoveFunc +' onclick=' + startMoveFunc + '></img>';
 }
@@ -115,19 +117,23 @@ function hashPosition(side, pieceIds){
     var pieceId;
     for(var i=0; i<70; i++){
         if(i<numSquares){
-            pieceId = pieceIds[i]; 
+            pieceId = pieceIds[i];
             if(pieceId!==0){
                 hash1^=randZTable[i][pieceId+6];
             }
         }else{
             if(pieceIds[i]>0){
                 hash1^=randZTable[i];
-            }    
+            }
         }
     }
     hash1^=randZTable[70+(side+1)>>1];
     */
-    return pieceIds.toString()+"-"+side;
+    var hash = ""
+    for(var i=0; i<70; i++){
+        hash+= String.fromCharCode(pieceIds[i])
+    }
+    return hash+"-"+side;
 }
 
 
@@ -168,7 +174,7 @@ function getNotation(pieceIds, move){
             if(Math.abs(pieceIds[capturePositions[i]]) === typeId && capturePositions[i] !== move[1]){
                 initPositions.push(capturePositions[i]);
             }
-        }        
+        }
         pieceIds[move[2]] = finalPosId;
         var sameFile = false;
         var sameRank = false;
@@ -188,7 +194,7 @@ function getNotation(pieceIds, move){
             }
         }
     }
-    
+
     var pieceIds2 = pieceIds.slice();
     var allMoves = findAllMoves(pieceIds2);
     makeMove(pieceIds2, move, allMoves, genNumAllMoves(allMoves));
@@ -217,7 +223,7 @@ function updateStatus(){
     var possibleMoves = generateMoveList(pieceIds, currentSide, true);
     for(var j=0; j<gameNotation.length; j++){
         notationStr+=(j+1)+". "+gameNotation[j][0]+" "+gameNotation[j][1]+" ";
-    }    
+    }
     var undoButton = document.getElementById("undo");
     var redoButton = document.getElementById("redo");
     undoButton.disabled = game.length<=1;
@@ -259,7 +265,7 @@ function setupBoard(pieceIds){
     var pieceHTML = "";
     for(var i=0; i<numSquares; i++){
         if(pieceIds[i]!==0){
-            pieceHTML+=addPiece(pieceIds[i], i, piecesDOM);
+            pieceHTML+=addPiece(pieceIds[i], i);
         }
     }
     piecesDOM.innerHTML = pieceHTML;
@@ -286,7 +292,7 @@ function init(){
 
 
 //Player has selected a piece, handle move that could be made by the player
-function startMove(initPos, side){
+function startMove(e, initPos, side){
     if(outcome===null && side===currentSide && !pendingMove){
         pendingMove = true;
         document.getElementById("piece-"+initPos).style.WebkitFilter='drop-shadow(1px 1px 0 yellow) drop-shadow(-1px 1px 0 yellow) drop-shadow(1px -1px 0 yellow) drop-shadow(-1px -1px 0 yellow)';
@@ -294,37 +300,38 @@ function startMove(initPos, side){
         document.getElementById("moves").innerHTML = highlightMoves(possibleRays);
 
         fmove = function(e){
-            console.log(e)
             if(e.targetTouches){
                 var cell = getCell(e.changedTouches[0].pageX, e.changedTouches[0].pageY)
-            }else{    
+            }else{
                 var cell = getCell(e.pageX,e.pageY);
             }
+            document.removeEventListener('touchend', fmove);
+            document.removeEventListener('mouseup', fmove);
             if(cell !== initPos){
                 var valid = false;
                 for(var i = 0; i < possibleRays.length; i++){
                     for(var j = 0; j < possibleRays[i].length; j++){
                         if(possibleRays[i][j] === cell){
                             valid = true;
-                        }    
+                        }
                     }
                 }
                 if(valid){
                     applyMove([pieceIds[initPos], initPos, cell]);
                 }else{
                     document.getElementById("piece-" + initPos).style.WebkitFilter='none';
-                    document.removeEventListener('mouseup', fmove);
-                    document.removeEventListener('touchend', fmove);
                 }
-                document.getElementById("moves").innerHTML = "";    
+                document.getElementById("moves").innerHTML = "";
             }
             pendingMove = false;
-            document.removeEventListener('mouseup', fmove);
-            document.removeEventListener('touchend', fmove);
+            e.preventDefault();
+            return false;
         }
-        document.addEventListener('mouseup', fmove);
-        document.addEventListener('touchend', fmove);
+        document.addEventListener('touchend', fmove, false);
+        document.addEventListener('mouseup', fmove, false);
     }
+    e.preventDefault()
+    e.stopPropagation()
 }
 
 //Initialises and starts the game
@@ -384,7 +391,7 @@ function redo(){
         gameHashes.push(hashPosition(currentSide, futureBoard));
         setupBoard(pieceIds);
         updateStatus();
-    }   
+    }
 }
 
 

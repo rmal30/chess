@@ -2,7 +2,6 @@ var winScore = 100000;
 var pawnSquareTable = [0, 0, 1, 3, 13, 50, 201, 804];
 var pieceValues = [0, 96, 300, 325, 500, 900, 3950];
 
-
 //Heuristic evaluation of depth 0. Counts piece values and their mobility
 function evaluateScore(pieceIds, allMoves, numAllMoves, side){
         var score;
@@ -24,7 +23,7 @@ function evaluateScore(pieceIds, allMoves, numAllMoves, side){
                 if(pieceId===1){
                     materialScore+=pawnSquareTable[i>>3];
                 }
-                
+
             }else if(pieceId<0){
                 blackPieceCount++;
                 if(pieceId>=-4){
@@ -41,7 +40,7 @@ function evaluateScore(pieceIds, allMoves, numAllMoves, side){
         }
         if(blackPieceCount<2){
             kingFreedomScore-= kingFreedom(pieceIds, -1, allMoves, findPieceId(pieceIds, -6))-numSquares;
-        }    
+        }
         score = mobilityScore*5+materialScore+kingFreedomScore*2;
         return score*side;
 }
@@ -87,8 +86,8 @@ function kingFreedom(pieceIds, side, validMoves, position){
         }
         if(pieceIds[i]*side<0){
             if(pieceIds[i]!==-side){
-                for(var j = 0; j<validMoves[i].length; j++){    
-                    checkTable[validMoves[i][j]] = -1;            
+                for(var j = 0; j<validMoves[i].length; j++){
+                    checkTable[validMoves[i][j]] = -1;
                 }
             }else{
                 if(i&7 < 7){
@@ -128,7 +127,7 @@ function guessMoveScore(pieceIds, move, initScore, controllingList, side){
         }
     }
     if(isNull){
-        return null;    
+        return null;
     }else{
         return score;
     }
@@ -164,7 +163,7 @@ function qSearch(pieceId, controllingPieces, side){
 function MTDf(pieceIds,moveList, guess, side, depth, maxDepth){
     numCalls.mtdF++;
     var lower = -winScore;
-    var upper = winScore; 
+    var upper = winScore;
     var mtdBestMoves, beta;
     var allMoves = findAllMoves(pieceIds);
     while(lower<upper){
@@ -196,7 +195,7 @@ function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingL
     if(move){
         moveOrigin = move[1];
         moveDest = move[2];
-        if( depth===0 && !doQSearch){    
+        if( depth===0 && !doQSearch){
             var score = guessMoveScore(pieceIds, move, initScore, controllingList, side);
             if(score !== null){
                 return score;
@@ -237,7 +236,7 @@ function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingL
                 }
             }
             if(!draw){
-		replies = findBestMove(pieceIds,undefined,allMoves, -side, depth, maxDepth, -b, -a);
+                replies = findBestMove(pieceIds, null, allMoves, -side, depth, maxDepth, -b, -a);
                 newScore = -replies[2];    
                 /*
                 if(newScore>0){
@@ -252,8 +251,8 @@ function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingL
                 }else if(newScore<-maxDepth + depth){
                     newScore+= maxDepth - depth;
                 }
-                */    
-                
+                */
+            
             }
         }else{
             if(detectCheck(pieceIds, -side)){
@@ -325,7 +324,7 @@ function findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b)
     var numAllMoves = genNumAllMoves(allMoves);
     bestMoves[0] = depth;
     controllingList = genControllingList(pieceIds, allMoves);
-    if(!moveList){
+    if(moveList === null){
         moveList = generateMoveList(pieceIds,side, depth>maxDepth-2);
         if(depth>1){    
             sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth>>1, maxDepth, a, b);
@@ -383,7 +382,7 @@ function findBestMoves(pieceIds, moveList, allMoves, controllingList, side, dept
     bestMoves[0] = depth;
     bestMoves[1] = 0;
     for(var i=0; i<numMoves; i++){
-        move = moveList[i];    
+        move = moveList[i];
         newScore = scoreMove(pieceIds, move, initScore,allMoves, numAllMoves, controllingList, side, depth-1, maxDepth, a, b);
         if(newScore>bestScore){
             bestScore = newScore;

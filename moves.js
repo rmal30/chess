@@ -278,7 +278,7 @@ function findValidPieceMoves(pieceIds, position, noCheckAllowed){
     numCalls.vMoves++;
     var positions = [[],[]];
     var pieceId = pieceIds[position];
-    var typeId = Math.abs(pieceId);
+    var typeId = pieceId > 0 ? pieceId: -pieceId;
     var numPaths;
     var p, j;
     var possibleMoves, numMoves, possibleRays, possibleMove;
@@ -343,8 +343,9 @@ function generateMoveList(pieceIds, side, noCheckAllowed){
     var moveList = [];
     for(var i=0; i<numSquares; i++){
         var pieceId = pieceIds[i];
-        if(pieceId*side>0){
-            var options = findValidPieceMoves(pieceIds, i, noCheckAllowed); 
+        var pieceId_side = pieceId?pieceId<0?-1:1:0
+        if(side === pieceId_side){
+            var options = findValidPieceMoves(pieceIds, i, noCheckAllowed);
             var moves = options[0];
             var captures = options[1];
             var numMoves = moves.length;
