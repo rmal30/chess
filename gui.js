@@ -299,7 +299,7 @@ function startMove(e, initPos, side){
         var possibleRays = findValidPieceMoves(pieceIds, initPos, true);
         document.getElementById("moves").innerHTML = highlightMoves(possibleRays);
 
-        fmove = function(e){
+        var fmove = function(e){
             if(e.targetTouches){
                 var cell = getCell(e.changedTouches[0].pageX, e.changedTouches[0].pageY)
             }else{
