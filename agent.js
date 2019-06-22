@@ -1,56 +1,55 @@
 var winScore = 100000;
 var pawnSquareTable = [0, 0, 1, 3, 13, 50, 201, 804];
-var pieceValues = [0, 96, 300, 325, 500, 900, 3950];
+var pieceValues = [0, 96, 300, 325, 500, 900, 3950, 1500];
 
 function evaluate(pieceIds, side){
-    allMoves = findAllMoves(pieceIds)
-    numAllMoves = genNumAllMoves(allMoves)
-    return evaluateScore(pieceIds, allMoves, numAllMoves, side)
+    var allMoves = findAllMoves(pieceIds);
+    var numAllMoves = genNumAllMoves(allMoves);
+    return evaluateScore(pieceIds, allMoves, numAllMoves, side);
 }
 
 //Heuristic evaluation of depth 0. Counts piece values and their mobility
 function evaluateScore(pieceIds, allMoves, numAllMoves, side){
-        var score;
-        numCalls.eval++;
-        var mobilityScore = 0;
-        var materialScore = 0;
-        var kingFreedomScore = 0;
-        var pieceId;
-        var typeId;
-        var whitePieceCount = 0;
-        var blackPieceCount = 0;
-        for(var i=0; i<numSquares; i++){
-            pieceId = pieceIds[i];
-            typeId = getPieceType(pieceId)
-            if(isPieceSide(pieceId, 0)){
-                whitePieceCount++;
-                if(typeId<=4){
-                    mobilityScore+= numAllMoves[i];
-                }
-                materialScore+= pieceValues[typeId];
-                if(typeId===1){
-                    materialScore+=pawnSquareTable[i>>3];
-                }
-                
-            }else if(isPieceSide(pieceId, 1)){
-                blackPieceCount++;
-                if(typeId<=4){
-                    mobilityScore-= numAllMoves[i];
-                }
-                if(typeId===1){
-                    materialScore-=pawnSquareTable[7 - (i>>3)];
-                }
-                materialScore-= pieceValues[typeId];
+    var score;
+    numCalls.eval++;
+    var mobilityScore = 0;
+    var materialScore = 0;
+    var kingFreedomScore = 0;
+    var pieceId;
+    var typeId;
+    var whitePieceCount = 0;
+    var blackPieceCount = 0;
+    for(var i=0; i<numSquares; i++){
+        pieceId = pieceIds[i];
+        typeId = getPieceType(pieceId)
+        if(isPieceSide(pieceId, 0)){
+            whitePieceCount++;
+            if(typeId<=4 || typeId == 7){
+                mobilityScore+= numAllMoves[i];
             }
+            materialScore+= pieceValues[typeId];
+            if(typeId===1){
+                materialScore+=pawnSquareTable[i>>3];
+            }
+        }else if(isPieceSide(pieceId, 1)){
+            blackPieceCount++;
+            if(typeId<=4 || typeId == 7){
+                mobilityScore-= numAllMoves[i];
+            }
+            if(typeId===1){
+                materialScore-=pawnSquareTable[7 - (i>>3)];
+            }
+            materialScore-= pieceValues[typeId];
         }
-        if(whitePieceCount<2){
-            kingFreedomScore+= kingFreedom(pieceIds, 1, allMoves, findPieceId(pieceIds, getPieceId(0, 6)))-numSquares;
-        }
-        if(blackPieceCount<2){
-            kingFreedomScore-= kingFreedom(pieceIds, -1, allMoves, findPieceId(pieceIds, getPieceId(1, 6)))-numSquares;
-        }    
-        score = (mobilityScore*5)+materialScore+(kingFreedomScore<<1);
-        return score*(1-side*2);
+    }
+    if(whitePieceCount<3){
+        kingFreedomScore+= kingFreedom(pieceIds, 1, allMoves, findPieceId(pieceIds, getPieceId(0, 6)))-numSquares;
+    }
+    if(blackPieceCount<3){
+        kingFreedomScore-= kingFreedom(pieceIds, -1, allMoves, findPieceId(pieceIds, getPieceId(1, 6)))-numSquares;
+    }    
+    score = (mobilityScore*5)+materialScore+(kingFreedomScore<<1);
+    return score*(1-side*2);
 }
 
 //Uses the flood filling algorithm to fill in safe squares for the king
@@ -135,7 +134,7 @@ function guessMoveScore(pieceIds, move, initScore, controllingList, side){
         }
     }
     if(isNull){
-        return null;    
+        return null;
     }else{
         return score;
     }
@@ -171,7 +170,7 @@ function qSearch(pieceId, controllingPieces, side){
 function MTDf(pieceIds,moveList, guess, side, depth, maxDepth){
     numCalls.mtdF++;
     var lower = -winScore;
-    var upper = winScore; 
+    var upper = winScore;
     var mtdBestMoves, beta;
     var allMoves = findAllMoves(pieceIds);
     while(lower<upper){
@@ -244,7 +243,7 @@ function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingL
                 }
             }
             if(!draw){
-		replies = findBestMove(pieceIds,null,allMoves, 1 ^ side, depth, maxDepth, -b, -a);
+		        replies = findBestMove(pieceIds,null,allMoves, 1 ^ side, depth, maxDepth, -b, -a);
                 newScore = -replies[2];
                 /*
                 if(newScore>0){
@@ -252,15 +251,15 @@ function scoreMove(pieceIds, move, initScore, allMoves,numAllMoves, controllingL
                 }else if(newScore<0){
                     newScore++;
                 }
-                */    
+                */
                 /*
                 if(newScore>maxDepth - depth){
                     newScore-= maxDepth - depth;
                 }else if(newScore<-maxDepth + depth){
                     newScore+= maxDepth - depth;
                 }
-                */    
-                
+                */
+
             }
         }else{
             if(detectCheck(pieceIds, 1 ^ side)){
@@ -287,21 +286,21 @@ function sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth, m
     numMoves = moveList.length;
     var numAllMoves = genNumAllMoves(allMoves);
     var newScore = evaluateScore(pieceIds, allMoves,numAllMoves, side);
-    for(var i=0; i<numMoves; i++){    
+    for(var i=0; i<numMoves; i++){
         move = moveList[i];
         newScore = scoreMove(pieceIds, move, newScore,allMoves, numAllMoves, controllingList, side, depth-1, maxDepth, a, b);
         j = i;
         while(j >= 1 && scores[j-1] < newScore){
             scores[j] = scores[j-1];
-            moveList[j] = moveList[j-1];    
+            moveList[j] = moveList[j-1];
             j--;
-        }    
+        }
         scores[j] = newScore;
         moveList[j] = move;
     }
 }
 
-//Finds the best move 
+//Finds the best move
 function findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b){
     var a_old = a;
     var hash = hashPosition(side, pieceIds);
@@ -334,14 +333,14 @@ function findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b)
     controllingList = genControllingList(pieceIds, allMoves);
     if(moveList === null){
         moveList = generateMoveList(pieceIds,side, depth>maxDepth-2);
-        if(depth>1){    
+        if(depth>1){
             sortMoves(pieceIds, moveList, allMoves, controllingList, side, depth>>1, maxDepth, a, b);
         }
     }
     var initScore = evaluateScore(pieceIds, allMoves, numAllMoves, side);
     numMoves = moveList.length;
     for(var i=0; i<numMoves; i++){
-        move = moveList[i];    
+        move = moveList[i];
         newScore = scoreMove(pieceIds, move, initScore,allMoves, numAllMoves, controllingList, side, depth-1, maxDepth, a, b);
         if(newScore>bestScore){
             bestScore = newScore;
@@ -360,7 +359,7 @@ function findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b)
         bestMoves[1] = 0;
     }
     bestMoves[2] = bestScore;
-    if(!entryMoves || depth>=entryMoves[0]){            
+    if(!entryMoves || depth>=entryMoves[0]){
         bestMoveTable[hash] = bestMoves;
     }
     gameHashes.pop();
@@ -371,7 +370,7 @@ function findBestMove(pieceIds, moveList, allMoves, side, depth, maxDepth, a, b)
 function findBestMoves(pieceIds, moveList, allMoves, controllingList, side, depth, maxDepth, a, b){
     var bestScore = -winScore;
     var bestMoves = [];
-    var newScore, numMoves, move; 
+    var newScore, numMoves, move;
     var c = 3;
     var numAllMoves = genNumAllMoves(allMoves);
     var initScore = evaluateScore(pieceIds, allMoves,numAllMoves, side);
@@ -379,7 +378,7 @@ function findBestMoves(pieceIds, moveList, allMoves, controllingList, side, dept
     bestMoves[0] = depth;
     bestMoves[1] = 0;
     for(var i=0; i<numMoves; i++){
-        move = moveList[i];    
+        move = moveList[i];
         newScore = scoreMove(pieceIds, move, initScore,allMoves, numAllMoves, controllingList, side, depth-1, maxDepth, a, b);
         if(newScore>bestScore){
             bestScore = newScore;

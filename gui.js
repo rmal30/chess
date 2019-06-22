@@ -5,11 +5,11 @@ var maxInt = ~(1<<32);
 var gameNotation;
 var squareSize = 42;
 var currentSide, pendingMove;
-var pieceTypes = ["-", "P", "N", "B", "R", "Q", "K"]; //Piece types
+var pieceTypes = ["-", "P", "N", "B", "R", "Q", "K", "M"]; //Piece types
 var order = [4, 2, 3, 5, 6, 3, 2, 4]; //Identifies the position of pieces on the first or last rank
 var bestMoves, outcome, randZTable;
 var gameHashes = [];
-var bestMoveTable;
+var bestMoveTable={};
 var width = 8;
 var castlingBits = 6;
 var files = "abcdefgh";
@@ -18,6 +18,10 @@ var files = "abcdefgh";
 function play(){
     if(outcome===null){
         var level = parseInt(document.getElementById("level").value);
+        if(isNaN(level)){
+            level = 4;
+            document.getElementById("level").value = 4;
+        }
         var moveList, allMoves;
         var initLevel = 1;
         if(level%2===0){
@@ -70,10 +74,10 @@ function addPiece(pieceId, position){
     if(isPieceSide(pieceId, 1)){
         color = "b";
     }else{
-        color = "w";    
+        color = "w";
     }
     var image = pieceTypes[getPieceType(pieceId)].toLowerCase()+color;
-    var startMoveFunc = '"startMove(' + position + ',' + getPieceSide(pieceId) + ')"'
+    var startMoveFunc = '"startMove(event,' + position + ',' + getPieceSide(pieceId) + ')"'
     return '<img src="images/'+image+'.png" id="piece-'+position+'" style="position:absolute; left:'+left+'px;top:'+top+'px;"'
     +' ontouchend='+startMoveFunc +' onclick=' + startMoveFunc + '></img>';
 }
@@ -115,25 +119,71 @@ function hashPosition(side, pieceIds){
     var pieceId;
     for(var i=0; i<70; i++){
         if(i<numSquares){
-            pieceId = pieceIds[i]; 
+            pieceId = pieceIds[i];
             if(pieceId!==0){
                 hash1^=randZTable[i][pieceId+6];
             }
         }else{
             if(pieceIds[i]>0){
                 hash1^=randZTable[i];
-            }    
+            }
         }
     }
     hash1^=randZTable[70+(side+1)>>1];
     */
-    var hash=""
+    var hash = "";
     for(var i=0; i<70; i++){
-        hash+=String.fromCharCode(pieceIds[i])
+        hash+= String.fromCharCode(pieceIds[i])
     }
-    return hash+'-'+side;
+    return hash+"-"+side;
 }
 
+function getFEN(pieceIds, side){
+    var lines = []
+    for(var rank=7; rank>=0; rank--){
+        var line="";
+        var count = 0;
+        for(var file=0; file<8; file++){
+            var index = rank*8 + file;
+            var pieceId = pieceIds[index]
+            var pieceLetter = "";
+            if(pieceId==0){
+                count++;
+            }else{
+                if(count>0){
+                    line += count;
+                    count = 0;
+                }
+                if(pieceId>0){
+                    pieceLetter = pieceTypes[pieceId]
+                }else{
+                    pieceLetter = pieceTypes[-pieceId].toLowerCase()
+                }
+            }
+            line+= pieceLetter;
+        }
+        if(count>0){
+            line += count;
+            count = 0;
+        }
+        lines.push(line)
+    }
+
+    var sideLetter;
+    if(side === 1){
+        sideLetter = 'w';
+    }else{
+        sideLetter = 'b'
+    }
+
+    var indexes = [66, 65, 69, 68]
+    var castle = 'KQkq'
+    var castleLetters = ""
+    for(var i=0; i<indexes.length; i++){
+        castleLetters += pieceIds[indexes[i]] === 0 && pieceIds[1 + (indexes[i] - 1) - (indexes[i]-1)%3]===0 ? castle[i] : '-';
+    }
+    return [lines.join('/'), sideLetter, castleLetters].join(' ');
+}
 
 //Returns the notation for a move
 function getNotation(pieceIds, move){
@@ -198,7 +248,7 @@ function getNotation(pieceIds, move){
             }
         }
     }
-    
+
     var pieceIds2 = pieceIds.slice();
     var allMoves = findAllMoves(pieceIds2);
     makeMove(pieceIds2, move, allMoves, genNumAllMoves(allMoves));
@@ -227,7 +277,7 @@ function updateStatus(){
     var possibleMoves = generateMoveList(pieceIds, currentSide, true);
     for(var j=0; j<gameNotation.length; j++){
         notationStr+=(j+1)+". "+gameNotation[j][0]+" "+gameNotation[j][1]+" ";
-    }    
+    }
     var undoButton = document.getElementById("undo");
     var redoButton = document.getElementById("redo");
     undoButton.disabled = game.length<=1;
@@ -269,7 +319,7 @@ function setupBoard(pieceIds){
     var pieceHTML = "";
     for(var i=0; i<numSquares; i++){
         if(pieceIds[i]!==noPiece){
-            pieceHTML+=addPiece(pieceIds[i], i, piecesDOM);
+            pieceHTML+=addPiece(pieceIds[i], i);
         }
     }
     piecesDOM.innerHTML = pieceHTML;
@@ -287,7 +337,6 @@ function init(){
     pieceIds = newGamePosition();
     game = [pieceIds.slice()];
     future = [];
-    bestMoveTable = {};//new Array(maxInt-1);
     gameHashes = [hashPosition(currentSide, pieceIds)];
     allPieceMoves = generateAllMovesTable();
     setupBoard(pieceIds);
@@ -296,48 +345,46 @@ function init(){
 
 
 //Player has selected a piece, handle move that could be made by the player
-function startMove(initPos, side){
+function startMove(e, initPos, side){
     if(outcome===null && side===currentSide && !pendingMove){
         pendingMove = true;
         document.getElementById("piece-"+initPos).style.WebkitFilter='drop-shadow(1px 1px 0 yellow) drop-shadow(-1px 1px 0 yellow) drop-shadow(1px -1px 0 yellow) drop-shadow(-1px -1px 0 yellow)';
         var possibleRays = findValidPieceMoves(pieceIds, initPos, true);
         document.getElementById("moves").innerHTML = highlightMoves(possibleRays);
 
-        fmove = function(e){
+        var fmove = function(e){
             if(e.targetTouches){
                 var cell = getCell(e.changedTouches[0].pageX, e.changedTouches[0].pageY)
-            }else{    
+            }else{
                 var cell = getCell(e.pageX,e.pageY);
             }
+            document.removeEventListener('touchend', fmove);
+            document.removeEventListener('mouseup', fmove);
             if(cell !== initPos){
                 var valid = false;
                 for(var i = 0; i < possibleRays.length; i++){
                     for(var j = 0; j < possibleRays[i].length; j++){
                         if(possibleRays[i][j] === cell){
                             valid = true;
-                        }    
+                        }
                     }
                 }
                 if(valid){
                     applyMove(getMove(pieceIds[initPos], initPos, cell));
                 }else{
                     document.getElementById("piece-" + initPos).style.WebkitFilter='none';
-                    document.removeEventListener('mouseup', fmove);
-                    document.removeEventListener('touchend', fmove);
                 }
-                document.getElementById("moves").innerHTML = "";    
+                document.getElementById("moves").innerHTML = "";
             }
             pendingMove = false;
-           
-            if(e.targetTouches){
-                document.removeEventListener('touchend', fmove);
-            }else{
-                document.removeEventListener('mouseup', fmove);
-            }
+            e.preventDefault();
+            return false;
         }
-        document.addEventListener('touchend', fmove);
-        document.addEventListener('mouseup', fmove);
+        document.addEventListener('touchend', fmove, false);
+        document.addEventListener('mouseup', fmove, false);
     }
+    e.preventDefault()
+    e.stopPropagation()
 }
 
 //Initialises and starts the game
@@ -353,7 +400,7 @@ function doPlay(){
         var inProgress;
         if(compPlayer===currentSide || compPlayer===2){
             inProgress = "visible";
-            setTimeout(play, 50);
+            setTimeout(play, 20);
         }else{
             inProgress = "hidden";
         }
@@ -397,7 +444,7 @@ function redo(){
         gameHashes.push(hashPosition(currentSide, futureBoard));
         setupBoard(pieceIds);
         updateStatus();
-    }   
+    }
 }
 
 
