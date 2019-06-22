@@ -1,7 +1,7 @@
-var noPiece = 0;
+var noPiece = getPieceId(3, 0);
 var numSquares = 64;
 var allPieceMoves = [];
-var numCalls = {eval:0, p:0, k:0, n:0, vMoves:0, check:0, umt:0, aMoves:0, mtdF:0};
+var numCalls = {eval:0, p:0, k:0, n:0, vMoves:0, check:0, umt:0, aMoves:0, mtdF:0, lme:0};
 
 //Each cell has an id from 1-64
 //Store legal moves for pieces, each number is a cell id offset indicating a relative change from initial position
@@ -13,6 +13,7 @@ var queenPaths = [-9, -8, -7, -1, 1, 7, 8, 9]; //Rays for a queen
 var kingPaths = [-9, -8, -7, -1, 1, 7, 8, 9]; //Moves for a king
 var knightPaths = [-17,-15,-10,-6, 6, 10, 15, 17]; //Moves for a knight
 
+const PIECES = {PAWN: 1, KNIGHT: 2, BISHOP: 3, ROOK: 4, QUEEN: 5, KING: 6};
 
 //Find the total number of moves possible for each piece on the board
 function genNumAllMoves(allMoves){
@@ -23,6 +24,38 @@ function genNumAllMoves(allMoves){
     return numAllMoves;
 }
 
+function getPieceType(pieceId){
+    return pieceId & 0x7
+}
+
+function getPieceSide(pieceId){
+    return pieceId >> 3
+}
+
+function isPieceSide(pieceId, side){
+    return (pieceId >> 3) == side
+}
+
+function getPieceId(side, type){
+    return ((side & 3) << 3) | type
+}
+
+function getPiece(move){
+    return (move >> 16) & 0xF
+}
+
+function getOrigin(move){
+    return (move >> 8) & 0xFF
+}
+
+function getDest(move){
+    return move & 0xFF
+}
+
+function getMove(pieceId, origin, dest){
+    return (pieceId << 16) | (origin << 8) | dest
+}
+
 //Find the piece types controlling a square
 function genControllingArr(pieceIds, controllingPieceIds){
     var arrLength = controllingPieceIds.length;
@@ -31,7 +64,7 @@ function genControllingArr(pieceIds, controllingPieceIds){
     for(var i=0; i<arrLength; i++){    
         num = pieceIds[controllingPieceIds[i]];
         j = i;
-        while(j >= 1 && Math.abs(arr[j-1]) > Math.abs(num)){
+        while(j >= 1 && getPieceType(arr[j-1]) > getPieceType(num)){
             arr[j] = arr[j-1];
             j--;
         }    
@@ -131,55 +164,54 @@ function adjustPosition(pos, delta){
 function detectCheck(pieceIds, side){
     numCalls.check++;
     var possibleThreats, numThreats;
-    var kingId = 6;
-    var pos = findPieceId(pieceIds, kingId*side);
+    var pos = findPieceId(pieceIds, getPieceId(side, 6));
     if(pos === -1){
         return true; //Can't find the king
     }
-    var pLeft = adjustPosition(pos, -1+side*8); //Potential pawn on left
-    var pRight = adjustPosition(pos, 1+side*8); //On right
-    if((pRight!==-1 && pieceIds[pRight] === -side) || (pLeft!==-1 && pieceIds[pLeft] ===  -side)){
+    var pLeft = adjustPosition(pos, 7 - (side << 4)); //Potential pawn on left
+    var pRight = adjustPosition(pos, 9 - (side << 4)); //On right
+    if((pRight!==-1 && pieceIds[pRight] === getPieceId( 1 ^ side, 1)) || (pLeft!==-1 && pieceIds[pLeft] ===  getPieceId(1^side, 1))){
         return true; //King attacked by pawns
     } 
-    var moves = allPieceMoves[kingId*numSquares+pos];
+    var moves = allPieceMoves[6*numSquares+pos];
     for(var i=0; i<moves.length; i++){
-        if(pieceIds[moves[i]]===-kingId*side){
+        if(pieceIds[moves[i]]===getPieceId(1^side, 6)){
             return true; //King attacked by opposite king
         }
     }
     var pieceId;
     //Change to a knight, bishop and rook, find potential attackers
     for(var j=2; j<=4; j++){
-        pieceIds[pos] = j*side; //Change piece to detect pieces nearby
+        pieceIds[pos] = getPieceId(side, j); //Change piece to detect pieces nearby
         possibleThreats = findValidPieceMoves(pieceIds, pos, false)[1];
         numThreats = possibleThreats.length;
         for(var k=0; k<numThreats; k++){
             pieceId = pieceIds[possibleThreats[k]];
-            if(pieceId === - j*side || (j!==2 && pieceId===-5*side)){
-                pieceIds[pos] = kingId*side; //Change back to king
+            if(pieceId === getPieceId(1 ^ side, j) || (j!==2 && pieceId===getPieceId(1 ^ side, 5))){
+                pieceIds[pos] = getPieceId(side, 6); //Change back to king
                 return true; //King attacked by knight, bishop, rook or queen
             }
         }
     }
-    pieceIds[pos] = kingId*side; //Change back to king, no threats found
+    pieceIds[pos] = getPieceId(side, 6); //Change back to king, no threats found
     return false;
 }
 
 //Check if move is valid
 function validMove(pieceIds,move){
-    var initPos = move[1];
-    var finalPos = move[2];
-    var pieceId = move[0]; 
+    var initPos = getOrigin(move);
+    var finalPos = getDest(move);
+    var pieceId = getPiece(move); 
     var j = pieceIds[finalPos];
     var valid = true;
     
-    if(j*pieceId>0){
+    if(getPieceSide(j) == getPieceSide(pieceId)){
         return false;
     }
     pieceIds[initPos]=noPiece;
     pieceIds[finalPos]=pieceId;
     
-    if(detectCheck(pieceIds, Math.sign(pieceId))){
+    if(detectCheck(pieceIds, getPieceSide(pieceId))){
         valid = false;
     }
     pieceIds[initPos] = pieceId;
@@ -197,33 +229,33 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
     var positions = [[],[]];
     var pos = position;
     var pieceId = pieceIds[pos];
-    var side = pieceId > 0 ? 1 : -1;
-    var leftCapturePos = pos+8*side-1;
-    var rightCapturePos = pos+8*side+1;
-    if((pos&7)>0 && pieceIds[leftCapturePos]*side < 0){        
-        if(!noCheckAllowed || validMove(pieceIds, [pieceId, position, leftCapturePos])){
+    var side = getPieceSide(pieceId);
+    var leftCapturePos = pos + 7 - 16*side;
+    var rightCapturePos = pos + 9 - 16*side;
+    if((pos&7)>0 && isPieceSide(pieceIds[leftCapturePos], 1 ^ side)){
+        if(!noCheckAllowed || validMove(pieceIds, getMove(pieceId, position, leftCapturePos))){
             positions[1].push(leftCapturePos);    
         }
     }
 
-    if((pos&7)<7 && pieceIds[rightCapturePos]*side < 0){
-        if(!noCheckAllowed || validMove(pieceIds, [pieceId, position, rightCapturePos])){
+    if((pos&7)<7 && isPieceSide(pieceIds[rightCapturePos], 1 ^ side)){
+        if(!noCheckAllowed || validMove(pieceIds, getMove(pieceId, position, rightCapturePos))){
             positions[1].push(rightCapturePos);    
         }
     }
-    if(pos>>3 === 3.5 + 0.5*side){
+    if(pos>>3 === 4 - side){
         var move = moveHistory[moveHistory.length-1];
         if(move){
-            var moveDest = move[2];
-            var moveOrigin = move[1];
-            if(move[0] === -side && (moveOrigin>>3===3.5+2.5*side)){
+            var moveDest = getDest(move);
+            var moveOrigin = getOrigin(move);
+            if(getPiece(move) === getPieceId(1 ^ side, 1) && (moveOrigin>>3 === 6 - 5*side)){
                 var enPassantLeft = adjustPosition(pos, -1);
                 var enPassantRight = adjustPosition(pos, 1);
                 var enl = pieceIds[enPassantLeft];
                 var enr = pieceIds[enPassantRight];
                 
-                if(enPassantLeft!==-1 && enl*side<0 && moveDest===enPassantLeft){
-                    leftCapturePos = adjustPosition(pos, -1+8*side);
+                if(enPassantLeft!==-1 && isPieceSide(enl, 1^side) && moveDest===enPassantLeft){
+                    leftCapturePos = adjustPosition(pos, 7 - 16*side);
                     if(!noCheckAllowed){
                         positions[1].push(leftCapturePos);
                     }else{
@@ -239,8 +271,8 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
                     }
                 }
                 
-                if(enPassantRight!==-1 && enr*side<0 && moveDest===enPassantRight){
-                    rightCapturePos = adjustPosition(pos, side*8+1);
+                if(enPassantRight!==-1 && isPieceSide(enr, 1^side) && moveDest===enPassantRight){
+                    rightCapturePos = adjustPosition(pos, 9 - side*16);
                     if(!noCheckAllowed){
                         positions[1].push(rightCapturePos);
                     }else{
@@ -258,14 +290,14 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
             }
         }
     }    
-    var forwardPos =  pos + 8*side;
+    var forwardPos =  pos + 8 - 16*side;
     if(pieceIds[forwardPos]===noPiece){
-        var doubleForwardPos = pos + 16*side;
-        if(!noCheckAllowed || validMove(pieceIds,[pieceId, pos, forwardPos])){
+        var doubleForwardPos = pos + 16 - 32*side;
+        if(!noCheckAllowed || validMove(pieceIds,getMove(pieceId, pos, forwardPos))){
             positions[0].push(forwardPos);
         }
-        if(pos>>3===3.5-2.5*side && pieceIds[doubleForwardPos]===noPiece){
-            if(!noCheckAllowed || validMove(pieceIds,[pieceId, pos, doubleForwardPos])){
+        if((pos>>3) ===1 + 5*side && pieceIds[doubleForwardPos]===noPiece){
+            if(!noCheckAllowed || validMove(pieceIds,getMove(pieceId, pos, doubleForwardPos))){
                 positions[0].push(doubleForwardPos);    
             }
         }
@@ -278,7 +310,8 @@ function findValidPieceMoves(pieceIds, position, noCheckAllowed){
     numCalls.vMoves++;
     var positions = [[],[]];
     var pieceId = pieceIds[position];
-    var typeId = Math.abs(pieceId);
+    var typeId = getPieceType(pieceId);
+    var side = getPieceSide(pieceId)
     var numPaths;
     var p, j;
     var possibleMoves, numMoves, possibleRays, possibleMove;
@@ -299,15 +332,15 @@ function findValidPieceMoves(pieceIds, position, noCheckAllowed){
                     possibleMove = possibleMoves[j];
                     p = pieceIds[possibleMove];
                     if(p===noPiece){
-                        if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){        
+                        if(!noCheckAllowed || validMove(pieceIds, getMove(pieceId, position, possibleMove))){        
                             positions[0].push(possibleMove);                    
                         }                
                     }
-                    else if(p*pieceId<0){
-                        if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){
+                    else if(isPieceSide(p, 1^side)){
+                        if(!noCheckAllowed || validMove(pieceIds, getMove(pieceId, position, possibleMove))){
                             positions[1].push(possibleMove);
                         }
-                    }    
+                    }
                     j++;
                 }
             }
@@ -319,11 +352,11 @@ function findValidPieceMoves(pieceIds, position, noCheckAllowed){
                 possibleMove = possibleMoves[i];
                 p = pieceIds[possibleMove];
                 if(p===noPiece){
-                    if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){        
+                    if(!noCheckAllowed || validMove(pieceIds,getMove(pieceId, position, possibleMove))){        
                         positions[0].push(possibleMove);                    
                     }
-                }else if(p*pieceId<0){
-                    if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){
+                }else if(isPieceSide(p, 1^side)){
+                    if(!noCheckAllowed || validMove(pieceIds,getMove(pieceId, position, possibleMove))){
                         positions[1].push(possibleMove);
                     }
                 }                    
@@ -343,16 +376,16 @@ function generateMoveList(pieceIds, side, noCheckAllowed){
     var moveList = [];
     for(var i=0; i<numSquares; i++){
         var pieceId = pieceIds[i];
-        if(pieceId*side>0){
+        if(isPieceSide(pieceId, side)){
             var options = findValidPieceMoves(pieceIds, i, noCheckAllowed); 
             var moves = options[0];
             var captures = options[1];
             var numMoves = moves.length;
             for(var j=0; j<captures.length; j++){
-                moveList.unshift([pieceId, i, captures[j]]);
+                moveList.unshift(getMove(pieceId, i, captures[j]));
             }
             for(var k=0; k<numMoves; k++){
-                moveList.push([pieceId, i, moves[k]]);
+                moveList.push(getMove(pieceId, i, moves[k]));
             }
         }
     }    
@@ -367,13 +400,13 @@ function generateCaptureList(pieceIds, allMoves, side){
     var controllingList = genControllingList(pieceIds, allMoves)
     for(var i=0; i<numSquares; i++){
         var pieceId = pieceIds[i];
-        if(pieceId*side>0){
+        if(isPieceSide(pieceId, side)){
             options = findValidPieceMoves(pieceIds, i, false); 
             captures = options[1];
             for(var j=0; j<captures.length; j++){
                 capturePos = captures[j];
-                if(pieceId*side<-side*pieceIds[capturePos]){
-                    moveList.unshift([pieceId, i, capturePos]);
+                if(getPieceType(pieceId) < ((1 ^ side)<<3) ^ pieceIds[capturePos]){
+                    moveList.unshift(getMove(pieceId, i, capturePos));
                 }else{
                     controllingPieces = genControllingArr(pieceIds, controllingList[capturePos]);
                     /*
@@ -383,7 +416,7 @@ function generateCaptureList(pieceIds, allMoves, side){
                     */
                     score = qSearch(pieceIds[capturePos], controllingPieces, side);
                     if(score>0){
-                        moveList.unshift([pieceId, i, capturePos]);
+                        moveList.unshift(getMove(pieceId, i, capturePos));
                     }
                 }
             }
@@ -397,13 +430,13 @@ function findAllPieceMoves(pieceIds, position){
     numCalls.aMoves++;
     var pos = position;
     var pieceId = pieceIds[pos];
-    if(pieceId===0){
+    if(pieceId===noPiece){
         return [];
     }
-    if(pieceId===-1){
+    if(pieceId===getPieceId(1, 1)){
         return allPieceMoves[pos];
     }
-    var typeId = Math.abs(pieceId);
+    var typeId = getPieceType(pieceId);
     var hash = typeId*numSquares+pos;
     var numMoves, numPaths;
     var positions;
@@ -442,9 +475,10 @@ function findAllMoves(pieceIds){
 
 //Checks if a legal move exists for a player
 function legalMoveExists(pieceIds, side){
+    numCalls.lme++;
     var pieceMoves;
     for(var i=0; i<numSquares; i++){
-        if(pieceIds[i]*side>0){
+        if(isPieceSide(pieceIds[i], side)){
             pieceMoves = findValidPieceMoves(pieceIds, i, true);
             if(pieceMoves[0].length>0 || pieceMoves[1].length>0){
                 return true;
@@ -457,10 +491,10 @@ function legalMoveExists(pieceIds, side){
 
 //Returns the change in position from making a move
 function makeMove(pieceIds, move, allMoves, numAllMoves){
-    var id = move[0];
-    var type = Math.abs(id);
-    var moveOrigin = move[1];
-    var moveDest = move[2];
+    var id = getPiece(move);
+    var type = getPieceType(id);
+    var moveOrigin = getOrigin(move);
+    var moveDest = getDest(move);
     var delta = [];
     var captureMade = pieceIds[moveDest]!==noPiece;
     pieceIds[moveOrigin] = noPiece;
@@ -481,13 +515,13 @@ function makeMove(pieceIds, move, allMoves, numAllMoves){
         }
         var rank = moveDest>>3;
         if(rank===0 || rank===7){
-            pieceIds[moveDest] = 5*id;
+            pieceIds[moveDest] = getPieceId(side, 5);
         }
     }
     else if(type===4){
-        var side = Math.sign(id);
-        var rank = 28 - 28*side;
-        var castlingIndex = 65.5-1.5*side;
+        var side = getPieceSide(id);
+        var rank = 56*side;
+        var castlingIndex = numSquares + 3*side;
         if(moveOrigin===rank && pieceIds[castlingIndex+1] === 0){
             pieceIds[castlingIndex+1] = 1;
             delta[0] = 1;
@@ -497,17 +531,17 @@ function makeMove(pieceIds, move, allMoves, numAllMoves){
         }
     }
     else if(type===6){ 
-        var side = Math.sign(id);
-        var rank = 28 - 28*side;    
+        var side = getPieceSide(id);
+        var rank = 56*side;
         if(moveOrigin === 4 + rank){
-            var castlingIndex = 65.5-1.5*side;
+            var castlingIndex = 64 + 3*side;
             if(pieceIds[castlingIndex] === 0){
                 pieceIds[castlingIndex] = 1;
                 delta[0] = 1;
             }    
             if(moveDest === 2 + rank){
                 pieceIds[rank] = noPiece;
-                pieceIds[3+rank] = 4*side;
+                pieceIds[3+rank] = getPieceId(side, 4);
                 pieceIds[castlingIndex+1] = 1;
                 allMoves[rank] = [];
                 numAllMoves[rank] = 0;
@@ -515,7 +549,7 @@ function makeMove(pieceIds, move, allMoves, numAllMoves){
                 numAllMoves[3+rank] = allMoves[3+rank].length;
             }else if(moveDest===6+rank){
                 pieceIds[7+rank] = noPiece;
-                pieceIds[5+rank] = 4*side;
+                pieceIds[5+rank] = getPieceId(side, 4);
                 pieceIds[castlingIndex+2] = 1;
                 allMoves[7+rank] = [];
                 numAllMoves[7+rank] = 0;
@@ -530,11 +564,11 @@ function makeMove(pieceIds, move, allMoves, numAllMoves){
 
 //Undoes a move
 function undoMove(pieceIds, move, capture, allMoves, numAllMoves){
-    var id = move[0];
-    var side = Math.sign(id);
-    var type = Math.abs(id);
-    var moveOrigin = move[1];
-    var moveDest = move[2];
+    var id = getPiece(move);
+    var side = getPieceSide(id);
+    var type = getPieceType(id);
+    var moveOrigin = getOrigin(move);
+    var moveDest = getDest(move);
     var castlingIndex;
     pieceIds[moveDest] = noPiece;
     if(capture && capture.length>1){
@@ -542,10 +576,10 @@ function undoMove(pieceIds, move, capture, allMoves, numAllMoves){
         allMoves[capture[1]] = capture[3];
         numAllMoves[capture[1]] = capture[3].length;
     }
-    var rank = 28 - 28*side;
+    var rank = 56*side;
     if(type===4){
         if(capture && capture[0]===1){
-            castlingIndex  = 65.5-1.5*side;
+            castlingIndex = numSquares + 3*side;
             if(moveOrigin ===rank){
                 pieceIds[castlingIndex+1] = 0;
             }else if(moveOrigin===rank+7){
@@ -556,14 +590,14 @@ function undoMove(pieceIds, move, capture, allMoves, numAllMoves){
 
     pieceIds[moveOrigin] = id;
     if(type===6 && moveOrigin === 4 + rank){
-        castlingIndex  = 65.5-1.5*side;
+        castlingIndex = numSquares + 3*side;
         if(capture && capture[0]===1){
             pieceIds[castlingIndex] = 0;
         }
         if(moveDest === 2 + rank){
             pieceIds[castlingIndex] = 0;
             pieceIds[castlingIndex+1] = 0;
-            pieceIds[rank] = 4*side;
+            pieceIds[rank] = getPieceId(side, 4);
             pieceIds[3+rank] = noPiece;
             allMoves[rank] = findAllPieceMoves(pieceIds,rank);
             numAllMoves[rank] = allMoves[rank].length;
@@ -573,7 +607,7 @@ function undoMove(pieceIds, move, capture, allMoves, numAllMoves){
         if(moveDest===6+rank){
             pieceIds[castlingIndex] = 0;
             pieceIds[castlingIndex+2] = 0;
-            pieceIds[7+rank] =  4*side;
+            pieceIds[7+rank] = getPieceId(side, 4);
             pieceIds[5+rank] = noPiece;
             allMoves[7+rank] = findAllPieceMoves(pieceIds,7+rank);
             allMoves[5+rank] = [];
@@ -582,6 +616,8 @@ function undoMove(pieceIds, move, capture, allMoves, numAllMoves){
         }
     }
 }
+
+function m_sign(x) { return x > 0 ? 1 : x < 0 ? -1 : 0; }
 
 //Checks for changes in position and updates the moves possible accordingly
 function updateMoveTable(pieceIds, allMoves,numAllMoves, controllingList, moveOrigin, moveDest, originalMoves){
@@ -595,10 +631,10 @@ function updateMoveTable(pieceIds, allMoves,numAllMoves, controllingList, moveOr
         var numFinalPieces = finalPieces.length;
         for(var i=0; i<numInitPieces; i++){
             initPiecePos = initPieces[i];
-            typeId = Math.abs(pieceIds[initPiecePos]);
+            typeId = getPieceType(pieceIds[initPiecePos]);
             if(typeId>=3 && typeId<=5 && initPiecePos!==moveDest){    
                 pos = moveOrigin;
-                delta = Math.sign(file - (initPiecePos&7))+ 8*Math.sign(rank - (initPiecePos>>3));
+                delta = m_sign(file - (initPiecePos&7))+ 8*m_sign(rank - (initPiecePos>>3));
                  p = noPiece;
                  while(pos!==-1 && p===noPiece){
                      pos = adjustPosition(pos, delta);        
@@ -612,7 +648,7 @@ function updateMoveTable(pieceIds, allMoves,numAllMoves, controllingList, moveOr
         }
         for(var j=0; j<numFinalPieces; j++){
             finalPiecePos = finalPieces[j];
-            typeId = Math.abs(pieceIds[finalPiecePos]);
+            typeId = getPieceType(pieceIds[finalPiecePos]);
             if(typeId>=3 && typeId<=5 && finalPiecePos!==moveOrigin){
                 allMoves[finalPiecePos] = findAllPieceMoves(pieceIds, finalPiecePos);
                 numAllMoves[finalPiecePos] = allMoves[finalPiecePos].length;
@@ -633,28 +669,28 @@ function findValidKingMoves(pieceIds, position, noCheckAllowed){
     var positions = [[],[]];
     var pos = position;
     var pieceId = pieceIds[position];
-    var side = pieceId > 0 ? 1 : -1;
+    var side = getPieceSide(pieceId);
     var p, possibleMove;
-    var possibleMoves = allPieceMoves[6*64+position];
+    var possibleMoves = allPieceMoves[6*numSquares+position];
     var numMoves = possibleMoves.length;
 
     for(var i=0; i<numMoves; i++){
         possibleMove = possibleMoves[i];
         p = pieceIds[possibleMove];
-        if(!noCheckAllowed || validMove(pieceIds, [pieceId, position, possibleMove])){
+        if(!noCheckAllowed || validMove(pieceIds, getMove(pieceId, position, possibleMove))){
             if(p===noPiece){
                 positions[0].push(possibleMove);
-            }else if(p*pieceId<0){
+            }else if(isPieceSide(p, 1^side)){
                 positions[1].push(possibleMove);
             }        
         }
     }    
-    var row = 28 - 28*side;
-    var castlingIndex = 65.5-1.5*side;
+    var row = 56*side;
+    var castlingIndex = numSquares + 3*side;
     if(pos === row + 4 && pieceIds[castlingIndex]===0 && (!noCheckAllowed || !detectCheck(pieceIds, side))){
-        if(pieceIds[castlingIndex+1]===0 && pieceIds[1+row]===noPiece && pieceIds[2+row]===noPiece && pieceIds[3+row]===noPiece && pieceIds[row]===4*side){
+        if(pieceIds[castlingIndex+1]===0 && pieceIds[1+row]===noPiece && pieceIds[2+row]===noPiece && pieceIds[3+row]===noPiece && pieceIds[row]=== getPieceId(side, 4)){
             var kingLeftPos = pos - 2;
-            if(validMove(pieceIds, [pieceId, position,kingLeftPos])){
+            if(validMove(pieceIds, getMove(pieceId, position,kingLeftPos))){
                 pieceIds[position] = noPiece;
                 pieceIds[position-1] = pieceId;
                 if(!noCheckAllowed || !detectCheck(pieceIds, side)){
@@ -664,9 +700,9 @@ function findValidKingMoves(pieceIds, position, noCheckAllowed){
                 pieceIds[position-1] = noPiece;
             }
         }
-        if(pieceIds[castlingIndex+2]===0 && pieceIds[5+row]===noPiece && pieceIds[6+row]===noPiece && pieceIds[7+row]===4*side){
+        if(pieceIds[castlingIndex+2]===0 && pieceIds[5+row]===noPiece && pieceIds[6+row]===noPiece && pieceIds[7+row]===getPieceId(side, 4)){
             var kingRightPos = pos + 2;
-            if(validMove(pieceIds, [pieceId, position, kingRightPos])){
+            if(validMove(pieceIds, getMove(pieceId, position, kingRightPos))){
                 pieceIds[position] = noPiece;
                 pieceIds[position+1] = pieceId;
                 if(!noCheckAllowed || !detectCheck(pieceIds, side)){

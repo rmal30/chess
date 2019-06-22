@@ -39,9 +39,9 @@ function play(){
             bestMoves = findBestMove(pieceIds, moveList, allMoves, currentSide, level,level, -winScore, winScore);
         }
         if(bestMoves.length>3){
-            applyMove(bestMoves.slice(3, 6));
+            applyMove(bestMoves[3]);
         }
-        if(Object.keys(bestMoveTable).length>1000000){
+        if(Object.keys(bestMoveTable).length>10000000){
             bestMoveTable = {};
         }
         updateStatus();
@@ -63,17 +63,17 @@ function getPosFromId(id){
 }
 
 // Add a piece to the gui board
-function addPiece(pieceId, position, piecesDOM){
+function addPiece(pieceId, position){
     var left = width - 1 + squareSize*(position%width);
     var top = (width - 1)*squareSize + width - 1 - squareSize*Math.floor(position/width);
     var color;
-    if(pieceId<0){
+    if(isPieceSide(pieceId, 1)){
         color = "b";
     }else{
         color = "w";    
     }
-    var image = pieceTypes[Math.abs(pieceId)].toLowerCase()+color;
-    var startMoveFunc = '"startMove(' + position + ',' + Math.sign(pieceId) + ')"'
+    var image = pieceTypes[getPieceType(pieceId)].toLowerCase()+color;
+    var startMoveFunc = '"startMove(' + position + ',' + getPieceSide(pieceId) + ')"'
     return '<img src="images/'+image+'.png" id="piece-'+position+'" style="position:absolute; left:'+left+'px;top:'+top+'px;"'
     +' ontouchend='+startMoveFunc +' onclick=' + startMoveFunc + '></img>';
 }
@@ -127,33 +127,43 @@ function hashPosition(side, pieceIds){
     }
     hash1^=randZTable[70+(side+1)>>1];
     */
-    return pieceIds.toString()+"-"+side;
+    var hash=""
+    for(var i=0; i<70; i++){
+        hash+=String.fromCharCode(pieceIds[i])
+    }
+    return hash+'-'+side;
 }
 
 
 //Returns the notation for a move
 function getNotation(pieceIds, move){
+    var origin = getOrigin(move)
+    var dest = getDest(move) 
+    var pieceId = getPiece(move)
     var promotion = "";
-    var finalPosId = pieceIds[move[2]];
     var capture = "";
-    var check="";
-    var typeId = Math.abs(move[0]);
-    var side = Math.sign(move[0]);
+    var check = "";
+    var start = "";
+    var end = getPosFromId(dest);
+    var finalPosId = pieceIds[dest]; 
+    var typeId = getPieceType(pieceId);
+    var side = getPieceSide(pieceId);
 
     var pieceType = pieceTypes[typeId];
     var idLetters = pieceType;
 
-    if(finalPosId!==noPiece){
-        capture="x";
-    }else{
-        if((Math.abs(move[1] - move[2])===width-1 || Math.abs(move[1] - move[2])===width+1) && typeId===1){
-            return files.charAt(move[1]%width)+"x"+getPosFromId(move[2]);
-        }
+    if(finalPosId !== noPiece){
+        capture= "x";
+    }else if((Math.abs(origin - dest)===width-1 || Math.abs(origin - dest)===width+1) && typeId===1){
+        capture = "x";
     }
 
     if(pieceType==="P"){
-        if(capture==="x"){idLetters=files.charAt(move[1]%width);}else{idLetters="";}
-        if(move[2] < width || move[2] >= numSquares - width){
+        idLetters=""
+        if(capture==="x"){
+            start=files.charAt(origin%width);
+        }
+        if(dest < width || dest >= numSquares - width){
             promotion="=Q";
         }
     }else{
@@ -162,29 +172,29 @@ function getNotation(pieceIds, move){
 
     if(typeId >= 2 && typeId <= 5){
         var initPositions = [];
-        pieceIds[move[2]] = - move[0];
-        var capturePositions = findValidPieceMoves(pieceIds, move[2], true)[1];
+        pieceIds[dest] = getPieceId(1^side, typeId);
+        var capturePositions = findValidPieceMoves(pieceIds, dest, true)[1];
         for(var i=0; i<capturePositions.length; i++){
-            if(Math.abs(pieceIds[capturePositions[i]]) === typeId && capturePositions[i] !== move[1]){
+            if(getPieceType(pieceIds[capturePositions[i]]) === typeId && capturePositions[i] !== origin){
                 initPositions.push(capturePositions[i]);
             }
         }        
-        pieceIds[move[2]] = finalPosId;
+        pieceIds[dest] = finalPosId;
         var sameFile = false;
         var sameRank = false;
         for(var j=0; j<initPositions.length; j++){
-            if(initPositions[j] % width === move[1] % width){
+            if(initPositions[j] % width === origin % width){
                 sameFile = true;
             }
-            if(Math.floor(initPositions[j]/width) === Math.floor(move[1]/width)){
+            if(Math.floor(initPositions[j]/width) === Math.floor(origin/width)){
                 sameRank = true;
             }
         }
         if(initPositions.length > 0){
-            if(!sameFile){idLetters += files.charAt(move[1] % width);}
-            else if(!sameRank){idLetters += Math.floor(move[1] / width) + 1;}
+            if(!sameFile){start = files.charAt(origin % width);}
+            else if(!sameRank){start = Math.floor(origin / width) + 1;}
             else{
-                idLetters+=getPosFromId(move[1]);
+                start=getPosFromId(origin);
             }
         }
     }
@@ -192,21 +202,21 @@ function getNotation(pieceIds, move){
     var pieceIds2 = pieceIds.slice();
     var allMoves = findAllMoves(pieceIds2);
     makeMove(pieceIds2, move, allMoves, genNumAllMoves(allMoves));
-    if(detectCheck(pieceIds2, -side)){
-        if(generateMoveList(pieceIds2, -side, true).length===0){
+    if(detectCheck(pieceIds2, 1^side)){
+        if(generateMoveList(pieceIds2, 1^side, true).length===0){
             check="#";
         }else{
             check="+";
         }
     }
-    if(pieceType==="K" && move[1] % width === 4){
-        if(move[2] % width === 6){
+    if(pieceType==="K" && origin % width === 4){
+        if(dest % width === 6){
             return "O-O" + check;
-        }else if(move[2] % width === 2){
+        }else if(dest % width === 2){
             return "O-O-O" + check;
         }
     }
-    return idLetters+capture+getPosFromId(move[2])+promotion+check;
+    return idLetters+start+capture+end+promotion+check;
 }
 
 
@@ -231,10 +241,10 @@ function updateStatus(){
     }
     document.getElementById("history").innerHTML = notationStr;
     var statusText;
-    if(detectCheck(pieceIds,1) || detectCheck(pieceIds, -1)){
+    if(detectCheck(pieceIds,1) || detectCheck(pieceIds, 0)){
         if(possibleMoves.length===0){
             statusText = "Checkmate!";
-            outcome = -currentSide;
+            outcome = 1 - 2*currentSide;
         }else{
             statusText = "Check!";
         }
@@ -258,7 +268,7 @@ function setupBoard(pieceIds){
     var piecesDOM = document.getElementById("pieces");
     var pieceHTML = "";
     for(var i=0; i<numSquares; i++){
-        if(pieceIds[i]!==0){
+        if(pieceIds[i]!==noPiece){
             pieceHTML+=addPiece(pieceIds[i], i, piecesDOM);
         }
     }
@@ -271,7 +281,7 @@ function init(){
     moveHistory = [];
     futureMoves = [];
     gameNotation = [];
-    currentSide = 1;
+    currentSide = 0;
     outcome = null;
     pendingMove = false;
     pieceIds = newGamePosition();
@@ -294,7 +304,6 @@ function startMove(initPos, side){
         document.getElementById("moves").innerHTML = highlightMoves(possibleRays);
 
         fmove = function(e){
-            console.log(e)
             if(e.targetTouches){
                 var cell = getCell(e.changedTouches[0].pageX, e.changedTouches[0].pageY)
             }else{    
@@ -310,7 +319,7 @@ function startMove(initPos, side){
                     }
                 }
                 if(valid){
-                    applyMove([pieceIds[initPos], initPos, cell]);
+                    applyMove(getMove(pieceIds[initPos], initPos, cell));
                 }else{
                     document.getElementById("piece-" + initPos).style.WebkitFilter='none';
                     document.removeEventListener('mouseup', fmove);
@@ -319,11 +328,15 @@ function startMove(initPos, side){
                 document.getElementById("moves").innerHTML = "";    
             }
             pendingMove = false;
-            document.removeEventListener('mouseup', fmove);
-            document.removeEventListener('touchend', fmove);
+           
+            if(e.targetTouches){
+                document.removeEventListener('touchend', fmove);
+            }else{
+                document.removeEventListener('mouseup', fmove);
+            }
         }
-        document.addEventListener('mouseup', fmove);
         document.addEventListener('touchend', fmove);
+        document.addEventListener('mouseup', fmove);
     }
 }
 
@@ -350,11 +363,11 @@ function doPlay(){
 
 function undo(){
     if(game.length>1){
-        currentSide = -currentSide;
+        currentSide = 1 ^ currentSide;
         outcome = null;
         future.push(game.pop());
         gameHashes.pop();
-        if(currentSide === 1){
+        if(currentSide === 0){
             gameNotation.pop();
         }else{
             gameNotation[gameNotation.length - 1][1] = "";
@@ -372,13 +385,13 @@ function redo(){
         var futureBoard = future.pop();
         var futureMove = futureMoves.pop();
         var moveNotation = getNotation(pieceIds, futureMove);
-        if(currentSide === 1){
+        if(currentSide === 0){
             gameNotation.push([moveNotation, ""]);
         }else{
             gameNotation[gameNotation.length - 1][1] = moveNotation;
         }
         moveHistory.push(futureMove);
-        currentSide = - currentSide;
+        currentSide = 1 ^ currentSide;
         pieceIds = futureBoard;
         game.push(pieceIds.slice());
         gameHashes.push(hashPosition(currentSide, futureBoard));
@@ -391,7 +404,7 @@ function redo(){
 //Applies a move to the GUI - Commits a move
 function applyMove(move){
     var moveNotation = getNotation(pieceIds, move);
-    if(currentSide === 1){
+    if(currentSide === 0){
         gameNotation.push([moveNotation,""]);
     }else{
         gameNotation[gameNotation.length - 1][1] = moveNotation;
@@ -399,7 +412,7 @@ function applyMove(move){
     var allMoves = findAllMoves(pieceIds);
     makeMove(pieceIds, move, allMoves, genNumAllMoves(allMoves));
     moveHistory.push(move);
-    currentSide = - currentSide;
+    currentSide = 1 ^ currentSide;
     game.push(pieceIds.slice());
     futureMoves = [];
     future = [];
@@ -430,16 +443,16 @@ function highlightMoves(rays){
 function newGamePosition(){
     var pieceIds = [];
     for(var i=0; i<width; i++){
-        pieceIds[i] = order[i];
-        pieceIds[i + width]   = 1;
+        pieceIds[i] = getPieceId(0, order[i]);
+        pieceIds[i + width]   = getPieceId(0, 1);
 
-        pieceIds[i + width*2] = 0;
-        pieceIds[i + width*3] = 0;
-        pieceIds[i + width*4] = 0;
-        pieceIds[i + width*5] = 0;
+        pieceIds[i + width*2] = noPiece;
+        pieceIds[i + width*3] = noPiece;
+        pieceIds[i + width*4] = noPiece;
+        pieceIds[i + width*5] = noPiece;
 
-        pieceIds[i + width*6] = -1;
-        pieceIds[i + width*7] = -order[i];
+        pieceIds[i + width*6] = getPieceId(1, 1);
+        pieceIds[i + width*7] = getPieceId(1, order[i]);
     }
     for(var j = 0; j < castlingBits; j++){
         pieceIds[numSquares + j] = 0;
