@@ -28,13 +28,13 @@ function genControllingArr(pieceIds, controllingPieceIds){
     var arrLength = controllingPieceIds.length;
     var num, j;
     var arr = new Array(arrLength);
-    for(var i=0; i<arrLength; i++){    
+    for(var i=0; i<arrLength; i++){
         num = pieceIds[controllingPieceIds[i]];
         j = i;
         while(j >= 1 && Math.abs(arr[j-1]) > Math.abs(num)){
             arr[j] = arr[j-1];
             j--;
-        }    
+        }
         arr[j] = num;
     }
     return arr;
@@ -61,7 +61,7 @@ function genControllingList(pieceIds, allMoves){
 function generateAllMovesTable(){
     var hash, vectors, numPaths, positions, rayMoves, pos;
     var allPieceMoves = [];
-    for(var i=0; i<7; i++){
+    for(var i=0; i<8; i++){
         for(var j=0; j<numSquares; j++){
             hash = i*numSquares+j;
             positions = [];
@@ -72,12 +72,13 @@ function generateAllMovesTable(){
                 case 2: vectors = knightPaths; numPaths = 8; break;
                 case 3: vectors = bishopPaths; break;
                 case 4: vectors = rookPaths; break;
-                
-                case 5: 
-                case 6: 
+
+                case 5:
+                case 6:
+                case 7:
                     vectors = queenPaths; numPaths = 8; break;
             }
-            if(i>=3 && i<=5){
+            if((i>=3 && i<=5) || i===7){
                 for(var k=0; k<numPaths; k++){
                     pos = j;
                     rayMoves = [];
@@ -91,7 +92,11 @@ function generateAllMovesTable(){
                         positions.push(rayMoves);
                     }
                 }
-            }else{
+            }
+            if((i===2) || (i === 6) || (i===7)){
+                if(i==7){
+                    vectors = knightPaths;
+                }
                 for(var m=0; m<numPaths; m++){
                     pos = adjustPosition(j, vectors[m]);
                     if(pos!==-1){
@@ -117,7 +122,7 @@ function findPieceId(pieceIds, pieceId){
 //Checks if move is legal on an empty board. If so, return the new location, else return -1
 function adjustPosition(pos, delta){
     var file = (pos & 7)+((delta+20) & 7) - 4; //Identify the file of the new location
-    var finalNum; 
+    var finalNum;
     if(file<8 && file>=0){
         finalNum = pos+delta;
         if(finalNum<numSquares && finalNum>=0){
@@ -132,15 +137,23 @@ function detectCheck(pieceIds, side){
     numCalls.check++;
     var possibleThreats, numThreats;
     var kingId = 6;
-    var pos = findPieceId(pieceIds, kingId*side);
-    if(pos === -1){
+    var pos1 = findPieceId(pieceIds, kingId*side);
+    var pos2 = findPieceId(pieceIds, 7*side);
+    if(pos1 === -1 && pos2 === -1){
         return true; //Can't find the king
     }
+    var pos;
+    if(pos1 === -1){
+        pos = pos2;
+    }else{
+        pos = pos1;
+    }
+    var oldPieceId = pieceIds[pos];
     var pLeft = adjustPosition(pos, -1+side*8); //Potential pawn on left
     var pRight = adjustPosition(pos, 1+side*8); //On right
     if((pRight!==-1 && pieceIds[pRight] === -side) || (pLeft!==-1 && pieceIds[pLeft] ===  -side)){
         return true; //King attacked by pawns
-    } 
+    }
     var moves = allPieceMoves[kingId*numSquares+pos];
     for(var i=0; i<moves.length; i++){
         if(pieceIds[moves[i]]===-kingId*side){
@@ -155,13 +168,14 @@ function detectCheck(pieceIds, side){
         numThreats = possibleThreats.length;
         for(var k=0; k<numThreats; k++){
             pieceId = pieceIds[possibleThreats[k]];
-            if(pieceId === - j*side || (j!==2 && pieceId===-5*side)){
-                pieceIds[pos] = kingId*side; //Change back to king
+            if(pieceId === - j*side || (j!==2 && pieceId===-5*side) || pieceId===-7*side){
+                pieceIds[pos] = oldPieceId; //Change back to king
                 return true; //King attacked by knight, bishop, rook or queen
             }
         }
     }
-    pieceIds[pos] = kingId*side; //Change back to king, no threats found
+
+    pieceIds[pos] = oldPieceId; //Change back to king, no threats found
     return false;
 }
 
@@ -169,25 +183,25 @@ function detectCheck(pieceIds, side){
 function validMove(pieceIds,move){
     var initPos = move[1];
     var finalPos = move[2];
-    var pieceId = move[0]; 
+    var pieceId = move[0];
     var j = pieceIds[finalPos];
     var valid = true;
-    
+
     if(j*pieceId>0){
         return false;
     }
     pieceIds[initPos]=noPiece;
     pieceIds[finalPos]=pieceId;
-    
+
     if(detectCheck(pieceIds, Math.sign(pieceId))){
         valid = false;
     }
     pieceIds[initPos] = pieceId;
     pieceIds[finalPos] = noPiece;
-    
+
     if(j!==noPiece){
         pieceIds[finalPos] = j;
-    }    
+    }
     return valid;
 }
 
@@ -200,15 +214,15 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
     var side = pieceId > 0 ? 1 : -1;
     var leftCapturePos = pos+8*side-1;
     var rightCapturePos = pos+8*side+1;
-    if((pos&7)>0 && pieceIds[leftCapturePos]*side < 0){        
+    if((pos&7)>0 && pieceIds[leftCapturePos]*side < 0){
         if(!noCheckAllowed || validMove(pieceIds, [pieceId, position, leftCapturePos])){
-            positions[1].push(leftCapturePos);    
+            positions[1].push(leftCapturePos);
         }
     }
 
     if((pos&7)<7 && pieceIds[rightCapturePos]*side < 0){
         if(!noCheckAllowed || validMove(pieceIds, [pieceId, position, rightCapturePos])){
-            positions[1].push(rightCapturePos);    
+            positions[1].push(rightCapturePos);
         }
     }
     if(pos>>3 === 3.5 + 0.5*side){
@@ -221,7 +235,7 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
                 var enPassantRight = adjustPosition(pos, 1);
                 var enl = pieceIds[enPassantLeft];
                 var enr = pieceIds[enPassantRight];
-                
+
                 if(enPassantLeft!==-1 && enl*side<0 && moveDest===enPassantLeft){
                     leftCapturePos = adjustPosition(pos, -1+8*side);
                     if(!noCheckAllowed){
@@ -233,12 +247,12 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
                         if(!detectCheck(pieceIds, side)){
                             positions[1].push(leftCapturePos);
                         }
-                        pieceIds[enPassantLeft] = enl;    
+                        pieceIds[enPassantLeft] = enl;
                         pieceIds[leftCapturePos]= noPiece;
                         pieceIds[pos]=pieceId;
                     }
                 }
-                
+
                 if(enPassantRight!==-1 && enr*side<0 && moveDest===enPassantRight){
                     rightCapturePos = adjustPosition(pos, side*8+1);
                     if(!noCheckAllowed){
@@ -250,14 +264,14 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
                         if(!detectCheck(pieceIds, side)){
                             positions[1].push(rightCapturePos);
                         }
-                        pieceIds[enPassantRight] = enr;    
+                        pieceIds[enPassantRight] = enr;
                         pieceIds[rightCapturePos]= noPiece;
                         pieceIds[pos]=pieceId;
                     }
                 }
             }
         }
-    }    
+    }
     var forwardPos =  pos + 8*side;
     if(pieceIds[forwardPos]===noPiece){
         var doubleForwardPos = pos + 16*side;
@@ -266,7 +280,7 @@ function findValidPawnMoves(pieceIds, position, noCheckAllowed){
         }
         if(pos>>3===3.5-2.5*side && pieceIds[doubleForwardPos]===noPiece){
             if(!noCheckAllowed || validMove(pieceIds,[pieceId, pos, doubleForwardPos])){
-                positions[0].push(doubleForwardPos);    
+                positions[0].push(doubleForwardPos);
             }
         }
     }
@@ -282,12 +296,13 @@ function findValidPieceMoves(pieceIds, position, noCheckAllowed){
     var numPaths;
     var p, j;
     var possibleMoves, numMoves, possibleRays, possibleMove;
-    
+
     switch(typeId){
         case 1: positions = findValidPawnMoves(pieceIds, position, noCheckAllowed); break;
         case 3:
         case 4:
         case 5:
+        case 7:
             possibleRays = allPieceMoves[typeId*numSquares+position];
             numPaths = possibleRays.length;
             for(var i=0; i<numPaths; i++){
@@ -295,46 +310,49 @@ function findValidPieceMoves(pieceIds, position, noCheckAllowed){
                 numMoves = possibleMoves.length;
                 j=0;
                 p=noPiece;
-                while(p===noPiece && j<numMoves){        
+                while(p===noPiece && j<numMoves){
                     possibleMove = possibleMoves[j];
                     p = pieceIds[possibleMove];
                     if(p===noPiece){
-                        if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){        
-                            positions[0].push(possibleMove);                    
-                        }                
+                        if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){
+                            positions[0].push(possibleMove);
+                        }
                     }
                     else if(p*pieceId<0){
                         if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){
                             positions[1].push(possibleMove);
                         }
-                    }    
+                    }
                     j++;
                 }
             }
-            break;
+            if(typeId !==7){
+                break;
+            }
         case 2:
+        case 7:
             possibleMoves = allPieceMoves[2*numSquares+position];
             numMoves = possibleMoves.length;
             for(var i=0; i<numMoves; i++){
                 possibleMove = possibleMoves[i];
                 p = pieceIds[possibleMove];
                 if(p===noPiece){
-                    if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){        
-                        positions[0].push(possibleMove);                    
+                    if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){
+                        positions[0].push(possibleMove);
                     }
                 }else if(p*pieceId<0){
                     if(!noCheckAllowed || validMove(pieceIds,[pieceId, position, possibleMove])){
                         positions[1].push(possibleMove);
                     }
-                }                    
-            }    
+                }
+            }
             break;
         case 6:
             positions = findValidKingMoves(pieceIds, position, noCheckAllowed);
             break;
-        
+
     default: return [];
-    }    
+    }
     return positions;
 }
 
@@ -356,7 +374,7 @@ function generateMoveList(pieceIds, side, noCheckAllowed){
                 moveList.push([pieceId, i, moves[k]]);
             }
         }
-    }    
+    }
     return moveList;
 }
 
@@ -369,7 +387,7 @@ function generateCaptureList(pieceIds, allMoves, side){
     for(var i=0; i<numSquares; i++){
         var pieceId = pieceIds[i];
         if(pieceId*side>0){
-            options = findValidPieceMoves(pieceIds, i, false); 
+            options = findValidPieceMoves(pieceIds, i, false);
             captures = options[1];
             for(var j=0; j<captures.length; j++){
                 capturePos = captures[j];
@@ -389,7 +407,7 @@ function generateCaptureList(pieceIds, allMoves, side){
                 }
             }
         }
-    }    
+    }
     return moveList;
 }
 
@@ -410,26 +428,30 @@ function findAllPieceMoves(pieceIds, position){
     var positions;
     var p, j;
     var possibleMoves;
-    var pieceMoves = allPieceMoves[hash];    
-    if(typeId>=3 && typeId<=5){
+    var pieceMoves = allPieceMoves[hash];
+    if((typeId>=3 && typeId<=5) || typeId == 7){
         positions = [];
         numPaths = pieceMoves.length;
         for(var i=0; i<numPaths; i++){
             possibleMoves = pieceMoves[i];
-            numMoves = possibleMoves.length;
-            j=0;
-            p=noPiece;
-            while(p===noPiece && j<numMoves){        
-                pos = possibleMoves[j];
-                p = pieceIds[pos];
-                positions.push(pos);
-                j++;
+            if(typeId == 7 && !Array.isArray(possibleMoves)){
+                positions.push(possibleMoves)
+            }else{
+                numMoves = possibleMoves.length;
+                j=0;
+                p=noPiece;
+                while(p===noPiece && j<numMoves){
+                    pos = possibleMoves[j];
+                    p = pieceIds[pos];
+                    positions.push(pos);
+                    j++;
+                }
             }
         }
         return positions;
     }else{
         return pieceMoves;
-    }    
+    }
 }
 //Finds all moves for all pieces
 function findAllMoves(pieceIds){
@@ -451,7 +473,7 @@ function legalMoveExists(pieceIds, side){
                 return true;
             }
         }
-        
+
     }
     return false;
 }
@@ -497,15 +519,15 @@ function makeMove(pieceIds, move, allMoves, numAllMoves){
             delta[0] = 1;
         }
     }
-    else if(type===6){ 
+    else if(type===6){
         var side = Math.sign(id);
-        var rank = 28 - 28*side;    
+        var rank = 28 - 28*side;
         if(moveOrigin === 4 + rank){
             var castlingIndex = 65.5-1.5*side;
             if(pieceIds[castlingIndex] === 0){
                 pieceIds[castlingIndex] = 1;
                 delta[0] = 1;
-            }    
+            }
             if(moveDest === 2 + rank){
                 pieceIds[rank] = noPiece;
                 pieceIds[3+rank] = 4*side;
@@ -551,7 +573,7 @@ function undoMove(pieceIds, move, capture, allMoves, numAllMoves){
                 pieceIds[castlingIndex+1] = 0;
             }else if(moveOrigin===rank+7){
                 pieceIds[castlingIndex+2] = 0;
-            }    
+            }
         }
     }
 
@@ -570,7 +592,7 @@ function undoMove(pieceIds, move, capture, allMoves, numAllMoves){
             numAllMoves[rank] = allMoves[rank].length;
             allMoves[3+rank] = [];
             numAllMoves[3+rank] = allMoves[3+rank].length;
-        }    
+        }
         if(moveDest===6+rank){
             pieceIds[castlingIndex] = 0;
             pieceIds[castlingIndex+2] = 0;
@@ -597,12 +619,12 @@ function updateMoveTable(pieceIds, allMoves,numAllMoves, controllingList, moveOr
         for(var i=0; i<numInitPieces; i++){
             initPiecePos = initPieces[i];
             typeId = Math.abs(pieceIds[initPiecePos]);
-            if(typeId>=3 && typeId<=5 && initPiecePos!==moveDest){    
+            if(((typeId>=3 && typeId<=5) || typeId == 7) && initPiecePos!==moveDest){
                 pos = moveOrigin;
                 delta = Math.sign(file - (initPiecePos&7))+ 8*Math.sign(rank - (initPiecePos>>3));
                  p = noPiece;
                  while(pos!==-1 && p===noPiece){
-                     pos = adjustPosition(pos, delta);        
+                     pos = adjustPosition(pos, delta);
                      if(pos!==-1){
                          p = pieceIds[pos];
                          allMoves[initPiecePos].push(pos);
@@ -614,18 +636,18 @@ function updateMoveTable(pieceIds, allMoves,numAllMoves, controllingList, moveOr
         for(var j=0; j<numFinalPieces; j++){
             finalPiecePos = finalPieces[j];
             typeId = Math.abs(pieceIds[finalPiecePos]);
-            if(typeId>=3 && typeId<=5 && finalPiecePos!==moveOrigin){
+            if(((typeId>=3 && typeId<=5) || typeId == 7)&& finalPiecePos!==moveOrigin){
                 allMoves[finalPiecePos] = findAllPieceMoves(pieceIds, finalPiecePos);
                 numAllMoves[finalPiecePos] = allMoves[finalPiecePos].length;
             }
         }
         if(originalMoves){
             allMoves[moveDest] = originalMoves;
-            numAllMoves[moveDest] = originalMoves.length;    
+            numAllMoves[moveDest] = originalMoves.length;
         }else{
             allMoves[moveDest] = findAllPieceMoves(pieceIds, moveDest);
-            numAllMoves[moveDest] = allMoves[moveDest].length;    
-        }        
+            numAllMoves[moveDest] = allMoves[moveDest].length;
+        }
 }
 
 //Finds valid moves for the king
@@ -647,9 +669,9 @@ function findValidKingMoves(pieceIds, position, noCheckAllowed){
                 positions[0].push(possibleMove);
             }else if(p*pieceId<0){
                 positions[1].push(possibleMove);
-            }        
+            }
         }
-    }    
+    }
     var row = 28 - 28*side;
     var castlingIndex = 65.5-1.5*side;
     if(pos === row + 4 && pieceIds[castlingIndex]===0 && (!noCheckAllowed || !detectCheck(pieceIds, side))){

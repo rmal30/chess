@@ -6,11 +6,11 @@ var maxInt = ~(1<<32);
 var gameNotation;
 var squareSize = 42;
 var currentSide, pendingMove;
-var pieceTypes = ["-", "P", "N", "B", "R", "Q", "K"]; //Piece types
+var pieceTypes = ["-", "P", "N", "B", "R", "Q", "K", "M"]; //Piece types
 var order = [4, 2, 3, 5, 6, 3, 2, 4]; //Identifies the position of pieces on the first or last rank
 var bestMoves, outcome, randZTable;
 var gameHashes = [];
-var bestMoveTable;
+var bestMoveTable={};
 var width = 8;
 var castlingBits = 6;
 var files = "abcdefgh";
@@ -42,7 +42,7 @@ function play(){
         if(bestMoves.length>3){
             applyMove(bestMoves.slice(3, 6));
         }
-        if(Object.keys(bestMoveTable).length>1000000){
+        if(Object.keys(bestMoveTable).length>10000000){
             bestMoveTable = {};
         }
         updateStatus();
@@ -136,6 +136,52 @@ function hashPosition(side, pieceIds){
     return hash+"-"+side;
 }
 
+function getFEN(pieceIds, side){
+    var lines = []
+    for(var rank=7; rank>=0; rank--){
+        var line="";
+        var count = 0;
+        for(var file=0; file<8; file++){
+            var index = rank*8 + file;
+            var pieceId = pieceIds[index]
+            var pieceLetter = "";
+            if(pieceId==0){
+                count++;
+            }else{
+                if(count>0){
+                    line += count;
+                    count = 0;
+                }
+                if(pieceId>0){
+                    pieceLetter = pieceTypes[pieceId]
+                }else{
+                    pieceLetter = pieceTypes[-pieceId].toLowerCase()
+                }
+            }
+            line+= pieceLetter;
+        }
+        if(count>0){
+            line += count;
+            count = 0;
+        }
+        lines.push(line)
+    }
+
+    var sideLetter;
+    if(side === 1){
+        sideLetter = 'w';
+    }else{
+        sideLetter = 'b'
+    }
+
+    var indexes = [66, 65, 69, 68]
+    var castle = 'KQkq'
+    var castleLetters = ""
+    for(var i=0; i<indexes.length; i++){
+        castleLetters += pieceIds[indexes[i]] === 0 && pieceIds[1 + (indexes[i] - 1) - (indexes[i]-1)%3]===0 ? castle[i] : '-';
+    }
+    return [lines.join('/'), sideLetter, castleLetters].join(' ');
+}
 
 //Returns the notation for a move
 function getNotation(pieceIds, move){
@@ -283,7 +329,6 @@ function init(){
     pieceIds = newGamePosition();
     game = [pieceIds.slice()];
     future = [];
-    bestMoveTable = {};//new Array(maxInt-1);
     gameHashes = [hashPosition(currentSide, pieceIds)];
     allPieceMoves = generateAllMovesTable();
     setupBoard(pieceIds);
@@ -347,7 +392,7 @@ function doPlay(){
         var inProgress;
         if(compPlayer===currentSide || compPlayer===2){
             inProgress = "visible";
-            setTimeout(play, 50);
+            setTimeout(play, 20);
         }else{
             inProgress = "hidden";
         }
